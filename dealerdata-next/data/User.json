@@ -1,0 +1,44 @@
+[
+  {
+    "id": "user_admin",
+    "email": "admin@dealerdata.com",
+    "password": "seed_salt_12345:d1e04ca6e00ad929d671ec99e58ffc6737347ca642c2a42a70be9608e9c63303ff48e5ad25da3789d32afe6f32cac03b1a0f6c7c90970c85636e0f2cb83ae6dd",
+    "full_name": "Sarah Connor (Director of Ops)",
+    "role": "admin",
+    "company": "Aaron Automotive Group",
+    "plan": "Professional",
+    "dealer_group_ids": "grp_aaron",
+    "store_ids": "store_aaron_ford_escondido,store_aaron_ford_lake_elsinore,store_aaron_cdjr,store_aaron_chevrolet,store_aaron_kia",
+    "created_at": "2026-01-01T00:00:00.000Z",
+    "updated_at": "2026-10-18T11:49:30.315Z",
+    "competitor_report_enabled": true
+  },
+  {
+    "id": "user_manager",
+    "email": "manager@aaronford.com",
+    "password": "seed_salt_12345:6a05be15ac8ee69084065329e8b79ec5d00a61c1180acc105ca61a3938a14e65eed21f5817f50eb43740879c105765037b22330d868f9e76831b9077a37077e1",
+    "full_name": "Marcus Vance (GM - Aaron Ford)",
+    "role": "manager",
+    "company": "Aaron Ford Escondido",
+    "plan": "Pro",
+    "dealer_group_ids": "grp_aaron",
+    "store_ids": "store_aaron_ford_escondido",
+    "created_at": "2026-01-15T00:00:00.000Z"
+  },
+  {
+    "id": "user_analyst",
+    "email": "analyst@dealerdata.com",
+    "password": "seed_salt_12345:d428523f421ebec595e91cb3f1aa54e3310cbd681e95b4cae2312f1637f77bb8dcf57aca5dc7a3a46d260813516ffc28eb2a706e46558a9fa8ef2112559b1b5b",
+    "full_name": "Elena Rostova (Lead Analyst)",
+    "role": "user",
+    "company": "Aaron Automotive Group",
+    "plan": "Starter",
+    "dealer_group_ids": "grp_aaron",
+    "store_ids": "store_aaron_ford_escondido",
+    "created_at": "2026-02-01T00:00:00.000Z",
+    "daily_summary_enabled": true,
+    "updated_at": "2026-10-18T11:38:12.248Z",
+    "appointments_enabled": true,
+    "competitor_report_enabled": true
+  }
+]

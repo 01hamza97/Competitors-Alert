@@ -1,0 +1,323 @@
+import { URL } from 'url';
+import { CrawlOptions, CrawlResult, VehicleListing, SpecialsOfferImage } from './types';
+import { PlatformDetector } from './services/platformDetector';
+import { SitemapDiscovery } from './services/sitemapDiscovery';
+import { WebsiteCrawler } from './services/crawler';
+import { ListingExtractor } from './services/listingExtractor';
+import { DatabaseSync } from './services/dbSync';
+import { HtmlSnapshotService } from './services/htmlSnapshotService';
+import { PlaywrightCrawler } from './services/playwrightCrawler';
+import { SpecialsExtractor } from './services/specialsExtractor';
+
+export * from './types';
+export * from './services/platformDetector';
+export * from './services/sitemapDiscovery';
+export * from './services/htmlCleaner';
+export * from './services/listingExtractor';
+export * from './services/crawler';
+export * from './services/dbSync';
+export * from './services/htmlSnapshotService';
+export * from './services/playwrightCrawler';
+export * from './services/specialsExtractor';
+
+/**
+ * Master Scraping Pipeline (Cascading Multi-Stage Funnel):
+ *
+ * 1. FUNNEL STAGE 1: Sitemap Discovery & XML Crawl
+ *    Probes robots.txt and XML sitemaps. Discovers and crawls vehicle VDPs.
+ *
+ * 2. FUNNEL STAGE 2: Direct Platform API & Native Feeds
+ *    Queries native automotive REST endpoints (CarsCommerce, DealerInspire, Dealer.com, CDK).
+ *
+ * 3. FUNNEL STAGE 3: Direct Target URL Search Results Page (SRP) Crawl
+ *    Fetches target inventory URL, extracts JSON-LD (ItemList/Vehicle) + HTML cards, follows pagination.
+ *
+ * 4. FUNNEL STAGE 4: Headless Browser / Playwright Automation
+ *    Renders dynamic client-side DOM, executes JavaScript, bypasses bot challenges, captures clean snapshots.
+ */
+export async function scrapeDealership(options: CrawlOptions): Promise<CrawlResult> {
+  const startTime = Date.now();
+  const parsedUrl = new URL(options.targetUrl);
+  const domain = parsedUrl.origin;
+  const inventoryType = options.inventoryType || 'New';
+  const dealerId = options.dealerId || 'default_dealer';
+  const dealerName = options.dealerName || parsedUrl.hostname;
+  const mode = options.mode || 'auto';
+
+  const isUnlimited = options.maxPages === 0 || options.maxPages === -1 || options.maxPages === undefined;
+  console.log(`\n======================================================`);
+  console.log(`🎯 DEALERDATA SCRAPER MULTI-STAGE FUNNEL`);
+  console.log(`   Target Store: ${dealerName} (${dealerId})`);
+  console.log(`   Target URL:   ${options.targetUrl}`);
+  console.log(`   Scrape Mode:  ${mode.toUpperCase()}`);
+  console.log(`   Inventory:    ${inventoryType} | Depth: ${isUnlimited ? 'Unlimited (All Pages)' : `${options.maxPages} pages`}`);
+  console.log(`======================================================\n`);
+
+  let listings: VehicleListing[] = [];
+  const sitemapFallbackListings: VehicleListing[] = [];
+  let specialsImages: SpecialsOfferImage[] = [];
+  let apiAccessUsed = false;
+  let sitemapUsed = false;
+  let funnelStageUsed: 'sitemap' | 'direct_api' | 'direct_srp' | 'playwright_browser' | 'none' = 'none';
+  let pagesCrawled = 0;
+  let manifestFile: string | undefined;
+
+  // -------------------------------------------------------------------------
+  // SPECIALS-ONLY MODE: Specials extraction is disabled from the main inventory scraper
+  // -------------------------------------------------------------------------
+  if (options.specialsOnly) {
+    console.log(`\n⚡ [SPECIALS DISABLED] Specials extraction has been removed from scraper.`);
+    return {
+      targetUrl: options.targetUrl,
+      domain,
+      platform: 'unknown',
+      mode,
+      totalListingsFound: 0,
+      newListingsCount: 0,
+      usedListingsCount: 0,
+      apiAccessUsed: false,
+      sitemapUsed: false,
+      funnelStageUsed: 'none',
+      funnelSummary: 'Specials extraction disabled',
+      pagesCrawled: 0,
+      durationSeconds: 0,
+      listings: [],
+      specialsImages: [],
+      htmlSpecialsCount: 0,
+      visualSpecialsCount: 0,
+      htmlSpecials: [],
+      visualSpecials: [],
+    };
+  }
+
+  const isDirectInventoryUrl = /inventory|all-inventory|new-vehicles|used-vehicles|searchnew|searchused|searchall/i.test(options.targetUrl);
+  const shouldTrySitemapFirst = options.useSitemapFirst === true || (!isDirectInventoryUrl && options.useSitemapFirst !== false);
+
+  // -------------------------------------------------------------------------
+  // FUNNEL STAGE 1: Direct Platform API & Native Feeds
+  // -------------------------------------------------------------------------
+  let detectedPlatform = 'unknown';
+  if (mode !== 'ai-html' && listings.length === 0 && options.tryDirectApi !== false) {
+    console.log(`\n⚡ [Funnel Step 1/4: Direct API & Native Feeds]`);
+    console.log(`   Checking known JSON API feeds & provider endpoints for ${domain}...`);
+
+    try {
+      detectedPlatform = await PlatformDetector.detectPlatform(domain);
+      console.log(`   [Platform] Detected Provider: ${detectedPlatform.toUpperCase()}`);
+
+      const apiResult = await PlatformDetector.checkDirectApi(domain, dealerId, options.maxPages);
+      if (apiResult.hasDirectApi && apiResult.listings.length > 0) {
+        console.log(`✨ [Funnel Step 1: Direct API] SUCCESS: Extracted ${apiResult.listings.length} listings from ${apiResult.endpoint}`);
+        listings.push(...apiResult.listings);
+        apiAccessUsed = true;
+        funnelStageUsed = 'direct_api';
+        pagesCrawled = 1;
+      }
+    } catch (apiErr: any) {
+      console.warn(`   [Funnel Step 1: Direct API] Notice: ${apiErr.message}`);
+    }
+
+    if (listings.length === 0) {
+      console.log(`⚠️  [Funnel Step 1: Direct API] Direct API not available or empty.`);
+      console.log(`   Advancing down funnel to Step 2 (Sitemap Discovery)...`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // FUNNEL STAGE 2: Sitemap Discovery & XML Crawling (when applicable)
+  // -------------------------------------------------------------------------
+  if (mode !== 'ai-html' && listings.length === 0 && shouldTrySitemapFirst) {
+    console.log(`\n🔍 [Funnel Step 2/4: Sitemap Discovery]`);
+    console.log(`   Probing ${domain} for robots.txt & XML inventory sitemaps...`);
+
+    try {
+      const sitemaps = await SitemapDiscovery.discoverInventorySitemaps(domain);
+      if (sitemaps.length > 0) {
+        console.log(`   Discovered ${sitemaps.length} candidate sitemap(s). Searching for vehicle inventory URLs...`);
+        for (const sitemapUrl of sitemaps) {
+          const maxUrlScan = isUnlimited ? 1000 : Math.max(100, (options.maxPages || 10) * 50);
+          const vehicleUrls = await SitemapDiscovery.parseVehicleUrlsFromSitemap(sitemapUrl, maxUrlScan);
+
+          if (vehicleUrls.length > 0) {
+            console.log(`   Discovered ${vehicleUrls.length} vehicle inventory URLs from: ${sitemapUrl}`);
+            const crawler = new WebsiteCrawler();
+            const vdpLimit = isUnlimited ? 500 : Math.min(vehicleUrls.length, (options.maxPages || 10) * 30);
+            const vdpListings = await crawler.crawlUrls(vehicleUrls, dealerId, dealerName, vdpLimit, 5);
+
+            // Check if listings actually have prices; slug fallbacks with $0 are only a last-resort fallback
+            const pricedListings = vdpListings.filter((l) => (l.listPrice || 0) > 0);
+            if (pricedListings.length > 0) {
+              listings.push(...vdpListings);
+              sitemapUsed = true;
+              funnelStageUsed = 'sitemap';
+              pagesCrawled += Math.min(vehicleUrls.length, vdpLimit);
+              console.log(`✨ [Funnel Step 2: Sitemap] SUCCESS: Harvested ${vdpListings.length} vehicles with prices via sitemap crawl!`);
+              break;
+            } else if (vdpListings.length > 0) {
+              console.log(`⚠️  [Funnel Step 2: Sitemap] Notice: Harvested ${vdpListings.length} URLs from sitemap, but 0 had real prices. Retaining as fallback and advancing to live SRP & Playwright...`);
+              if (sitemapFallbackListings.length === 0) {
+                sitemapFallbackListings.push(...vdpListings);
+              }
+            }
+          }
+        }
+      }
+    } catch (sitemapErr: any) {
+      console.warn(`   [Funnel Step 2: Sitemap] Notice: ${sitemapErr.message}`);
+    }
+
+    if (listings.length === 0) {
+      console.log(`⚠️  [Funnel Step 2: Sitemap] No inventory sitemaps with pricing accessible.`);
+      console.log(`   Advancing down funnel to Step 3 (Direct Target URL SRP Crawl)...`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // FUNNEL STAGE 3: Direct Target URL SRP & Pagination Crawl
+  // -------------------------------------------------------------------------
+  if (mode !== 'ai-html' && listings.length === 0) {
+    console.log(`\n🌐 [Funnel Step 3/4: Direct Target URL SRP Crawl]`);
+    console.log(`   Fetching target inventory URL directly: ${options.targetUrl}`);
+    console.log(`   Crawling HTML search results & following pagination...`);
+
+    try {
+      const crawler = new WebsiteCrawler();
+      const crawled = await crawler.crawl({
+        startUrl: options.targetUrl,
+        dealerId,
+        dealerName,
+        maxPages: options.maxPages,
+        inventoryType
+      });
+
+      if (crawled.length > 0) {
+        const pricedCount = crawled.filter((l) => (l.listPrice || 0) > 0).length;
+        if (pricedCount > 0) {
+          listings.push(...crawled);
+          funnelStageUsed = 'direct_srp';
+          pagesCrawled = crawled.length;
+          console.log(`✨ [Funnel Step 3: Direct SRP] SUCCESS: Extracted ${crawled.length} vehicles (${pricedCount} with valid prices) from paginated SRP!`);
+        } else {
+          console.log(`⚠️  [Funnel Step 3: Direct SRP] Harvested ${crawled.length} listings from static SRP, but ALL prices are $0.`);
+          console.log(`   Rejecting all-$0 static crawl to force live rendering in Stage 4 (Headless Browser / Playwright)...`);
+          if (sitemapFallbackListings.length === 0) {
+            sitemapFallbackListings.push(...crawled);
+          }
+        }
+      }
+    } catch (srpErr: any) {
+      console.warn(`   [Funnel Step 3: Direct SRP] Notice: ${srpErr.message}`);
+    }
+
+    if (listings.length === 0) {
+      console.log(`⚠️  [Funnel Step 3: Direct SRP] Static SRP crawl yielded 0 priced listings (client-side SPA or dynamic pricing required).`);
+      console.log(`   Advancing down funnel to Step 4 (Headless Browser / Playwright Automation)...`);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // FUNNEL STAGE 4: Playwright Headless Browser (Dynamic JS / SPA / AI Snapshots)
+  // -------------------------------------------------------------------------
+  if (mode === 'ai-html' || (mode === 'auto' && listings.length === 0)) {
+    console.log(`\n📸 [Funnel Step 4/4: Headless Browser Engine (Playwright)]`);
+    console.log(`   Launching browser to execute JavaScript, render dynamic DOM, and capture snapshots...`);
+
+    const playwrightCrawler = new PlaywrightCrawler();
+    try {
+      const crawlResult = await playwrightCrawler.crawl({
+        startUrl: options.targetUrl,
+        dealerId,
+        dealerName,
+        maxPages: options.maxPages,
+        saveHtmlFiles: true,
+        extractStaticListings: mode === 'auto',
+        htmlStorageDir: options.htmlStorageDir
+      });
+
+      pagesCrawled = crawlResult.manifest.totalPages;
+      specialsImages = crawlResult.specialsImages;
+
+      if (crawlResult.listings.length > 0) {
+        listings.push(...crawlResult.listings);
+        funnelStageUsed = 'playwright_browser';
+        console.log(`✨ [Funnel Step 4: Playwright] SUCCESS: Extracted ${crawlResult.listings.length} listings from rendered DOM!`);
+      }
+
+      manifestFile = `${options.htmlStorageDir || 'crawled_html'}/${dealerId}/${new Date().toISOString().split('T')[0]}/manifest.json`;
+    } catch (pwErr: any) {
+      console.error(`❌ [Funnel Step 4: Playwright] Error during browser crawl:`, pwErr.message);
+    }
+  }
+
+  // If all live methods yielded 0 listings, fall back to sitemap/static slug listings as last resort
+  if (listings.length === 0 && sitemapFallbackListings.length > 0) {
+    console.log(`⚠️  [Funnel Fallback] Live methods yielded 0 listings. Falling back to ${sitemapFallbackListings.length} sitemap/static fallback listings...`);
+    listings.push(...sitemapFallbackListings);
+    funnelStageUsed = sitemapUsed ? 'sitemap' : 'direct_srp';
+  }
+
+  // -------------------------------------------------------------------------
+  // STEP 5: Deduplicate by VIN & Filter for New Inventory
+  // -------------------------------------------------------------------------
+  const deduplicated = ListingExtractor.deduplicate(listings);
+  const finalListings =
+    inventoryType === 'New'
+      ? deduplicated.filter((item) => item.inventoryType === 'New')
+      : deduplicated;
+
+  const newListingsCount = finalListings.filter((i) => i.inventoryType === 'New').length;
+  const usedListingsCount = finalListings.filter((i) => i.inventoryType !== 'New').length;
+
+  // -------------------------------------------------------------------------
+  // STEP 6: Save Output & Database Sync
+  // -------------------------------------------------------------------------
+  let outputFile: string | undefined;
+  if (finalListings.length > 0) {
+    outputFile = DatabaseSync.saveToJsonFile(finalListings, parsedUrl.hostname, options.outputDir);
+
+    if (options.saveToDb !== false) {
+      await DatabaseSync.syncToDatabase(finalListings, dealerId);
+    }
+  }
+
+  // Specials extraction has been removed to keep the pipeline 100% focused on fast, reliable inventory crawling.
+  const htmlSpecialsList: import('./types').CompetitorVehicleSpecial[] = [];
+  const visualSpecialsList: import('./types').StagedVisualSpecial[] = [];
+
+  const durationSeconds = parseFloat(((Date.now() - startTime) / 1000).toFixed(2));
+  const funnelSummary = `Resolved via: Stage ${funnelStageUsed.toUpperCase()} (${finalListings.length} vehicles in ${durationSeconds}s)`;
+
+  console.log(`\n======================================================`);
+  console.log(`🏁 FUNNEL PIPELINE COMPLETE for: ${dealerName}`);
+  console.log(`   Funnel Stage Used: ${funnelStageUsed.toUpperCase()}`);
+  console.log(`   Total Unique Listings: ${finalListings.length}`);
+  console.log(`   New: ${newListingsCount} | Used: ${usedListingsCount}`);
+  if (manifestFile) console.log(`   N8N AI Manifest: ${manifestFile}`);
+  if (outputFile) console.log(`   Listings JSON: ${outputFile}`);
+  console.log(`   Duration: ${durationSeconds}s`);
+  console.log(`======================================================\n`);
+
+  return {
+    targetUrl: options.targetUrl,
+    domain,
+    platform: detectedPlatform,
+    mode,
+    totalListingsFound: finalListings.length,
+    newListingsCount,
+    usedListingsCount,
+    apiAccessUsed,
+    sitemapUsed,
+    funnelStageUsed,
+    funnelSummary,
+    pagesCrawled,
+    durationSeconds,
+    outputFile,
+    manifestFile,
+    listings: finalListings,
+    specialsImages,
+    htmlSpecialsCount: htmlSpecialsList.length,
+    visualSpecialsCount: visualSpecialsList.length,
+    htmlSpecials: htmlSpecialsList,
+    visualSpecials: visualSpecialsList
+  };
+}

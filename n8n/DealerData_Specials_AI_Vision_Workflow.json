@@ -1,0 +1,333 @@
+{
+  "name": "DealerData - AI Vision Specials Extraction Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "e1f1c2a0-1234-4567-89ab-cdef01234567",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "e2f2c3b1-2345-6789-abcd-ef0123456789",
+      "name": "Schedule: Every 1 Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/specials/staging",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "pending"
+            },
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "dealerdata_n8n_secret_2026"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "e3f3c4c2-3456-789a-bcde-f0123456789a",
+      "name": "Fetch Pending Specials from DealerData",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "e4f4c5d3-4567-89ab-cdef-0123456789ab",
+      "name": "Has Pending Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unpack the items array into separate n8n items for looping\nconst items = $json.items || [];\nif (!items.length) {\n  return [];\n}\n\nreturn items.map(item => ({\n  json: item\n}));"
+      },
+      "id": "e5f5c6e4-5678-9abc-def0-123456789abc",
+      "name": "Split Items for Processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "e6f6c7f5-6789-abcd-ef01-23456789abcd",
+      "name": "Loop Over Each Flyer",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1160,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.OPENAI_API_KEY || 'your-openai-api-key-here' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an expert automotive digital merchandising analyst. Extract vehicle lease, finance, or purchase specials from the promotional flyer image.\\n\\nReturn ONLY a valid JSON object matching this schema without markdown code blocks:\\n{\\n  \\\"year\\\": 2026,\\n  \\\"make\\\": \\\"Ford\\\",\\n  \\\"model\\\": \\\"Explorer\\\",\\n  \\\"trim\\\": \\\"XLT\\\",\\n  \\\"special_type\\\": \\\"lease\\\",\\n  \\\"monthly_payment\\\": 389,\\n  \\\"term_months\\\": 36,\\n  \\\"down_payment\\\": 2999,\\n  \\\"apr\\\": null,\\n  \\\"msrp\\\": 42500,\\n  \\\"title\\\": \\\"2026 Ford Explorer XLT Lease Special\\\",\\n  \\\"disclaimer\\\": \\\"Full legal disclaimer...\\\",\\n  \\\"expiration_date\\\": \\\"2026-10-31\\\"\\n}\\n\\nRules:\\n1. special_type must be: 'lease', 'finance', 'cash', or 'service'.\\n2. All numbers must be clean numbers without '$', '%', or commas.\\n3. If a field is not stated in the image, set it to null.\\n4. expiration_date must be in YYYY-MM-DD format if visible, else null.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"Extract all special offer details for this flyer. Existing raw snippet: {{ $json.rawText || $json.title || '' }}\"\n        },\n        {\n          \"type\": \"image_url\",\n          \"image_url\": {\n            \"url\": \"{{ $json.imageUrl }}\"\n          }\n        }\n      ]\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" },\n  \"max_tokens\": 800,\n  \"temperature\": 0.1\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "e7f7c806-789a-bcde-f012-3456789abcde",
+      "name": "Vision AI Extractor (GPT-4o)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1380,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and format AI response\nconst aiResponse = $json.choices?.[0]?.message?.content || '{}';\nlet parsed = {};\ntry {\n  parsed = JSON.parse(aiResponse);\n} catch (e) {\n  const jsonMatch = aiResponse.match(/\\{.*\\}/s);\n  if (jsonMatch) {\n    parsed = JSON.parse(jsonMatch[0]);\n  }\n}\n\nconst originalItem = $('Loop Over Each Flyer').item.json;\n\nreturn {\n  json: {\n    staging_id: originalItem.id,\n    image_hash: originalItem.imageHash || null,\n    auto_approve: true,\n    raw_text: originalItem.rawText || '',\n    extracted_data: {\n      year: parsed.year || new Date().getFullYear(),\n      make: parsed.make || 'Unknown',\n      model: parsed.model || 'Special Offer',\n      trim: parsed.trim || null,\n      special_type: parsed.special_type || 'lease',\n      monthly_payment: parsed.monthly_payment != null ? Number(parsed.monthly_payment) : null,\n      term_months: parsed.term_months != null ? Number(parsed.term_months) : null,\n      down_payment: parsed.down_payment != null ? Number(parsed.down_payment) : null,\n      apr: parsed.apr != null ? Number(parsed.apr) : null,\n      msrp: parsed.msrp != null ? Number(parsed.msrp) : null,\n      title: parsed.title || originalItem.title || '',\n      disclaimer: parsed.disclaimer || originalItem.disclaimer || '',\n      expiration_date: parsed.expiration_date || null\n    }\n  }\n};"
+      },
+      "id": "e8f8c917-89ab-cdef-0123-456789abcdef",
+      "name": "Format AI Special JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/specials/ai-callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "dealerdata_n8n_secret_2026"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "e9f9ca28-9abc-def0-1234-56789abcdef0",
+      "name": "Post Callback to DealerData API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        340
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Specials from DealerData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: Every 1 Hour": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Specials from DealerData",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Pending Specials from DealerData": {
+      "main": [
+        [
+          {
+            "node": "Has Pending Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Pending Items?": {
+      "main": [
+        [
+          {
+            "node": "Split Items for Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Items for Processing": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Each Flyer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Each Flyer": {
+      "main": [
+        [
+          {
+            "node": "Vision AI Extractor (GPT-4o)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vision AI Extractor (GPT-4o)": {
+      "main": [
+        [
+          {
+            "node": "Format AI Special JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Special JSON": {
+      "main": [
+        [
+          {
+            "node": "Post Callback to DealerData API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post Callback to DealerData API": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Each Flyer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dealerdata-n8n-instance"
+  },
+  "tags": [
+    {
+      "name": "DealerData"
+    },
+    {
+      "name": "Automotive AI"
+    },
+    {
+      "name": "Specials Vision"
+    }
+  ]
+}

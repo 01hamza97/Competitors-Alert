@@ -1,0 +1,16 @@
+{
+  "name": "mktgtrends-competitor-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "scrape": "node run.js"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0",
+    "axios": "^1.8.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "@anthropic-ai/sdk": "^0.24.0",
+    "rebrowser-playwright": "^1.49.1"
+  }
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "role_1792323814328_ppn74",
+    "name": "Inventory Specialist",
+    "slug": "inventory_specialist",
+    "description": "Responsible for vehicle lot pricing audits and specials review",
+    "permissions": [
+      "view_competitors",
+      "manage_specials"
+    ],
+    "is_system": false,
+    "created_at": "2026-10-18T11:43:34.328Z",
+    "updated_at": "2026-10-18T11:43:34.328Z"
+  },
+  {
+    "id": "role_manager",
+    "name": "General Manager (GM)",
+    "description": "Executive management across assigned dealership rooftops with store operations and team oversight.",
+    "permissions": "[\"view_leads\",\"view_appointments\",\"view_salespeople\",\"view_competitors\",\"manage_specials\",\"manage_team\",\"export_reports\"]",
+    "updated_at": "2026-10-18T11:54:28.631Z"
+  }
+]

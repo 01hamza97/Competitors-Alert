@@ -1,0 +1,84 @@
+name: Daily Scheduled Scrape
+
+# Automated inventory count/pricing schedules paused by request.
+# Keep workflow_dispatch so manual scraper runs remain available.
+on:
+  workflow_dispatch:
+    inputs:
+      scraper_store_id:
+        description: 'Store ID to scrape (leave blank to run all stores for current time slot)'
+        required: false
+
+env:
+  BASE44_CONFIG_URL: https://app.mktgtrends.com/functions/getScraperConfig
+  BASE44_UPDATE_SCRAPER_RUN_LOG_URL: https://app.mktgtrends.com/functions/updateScraperRunLog
+
+jobs:
+  resolve-stores:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.get-stores.outputs.matrix }}
+    steps:
+      - name: Get stores for this time slot
+        id: get-stores
+        run: |
+          if [ -n "${{ github.event.inputs.scraper_store_id }}" ]; then
+            MATRIX=$(echo '[{"scraper_store_id":"${{ github.event.inputs.scraper_store_id }}"}]')
+          else
+            HOUR=$(date -u +"%H")
+            MINUTE=$(date -u +"%M")
+            if [ "$MINUTE" -lt 10 ]; then
+              SLOT="${HOUR}:00"
+            elif [ "$MINUTE" -lt 30 ]; then
+              SLOT="${HOUR}:20"
+            elif [ "$MINUTE" -lt 50 ]; then
+              SLOT="${HOUR}:40"
+            else
+              NEXT_HOUR=$(printf "%02d" $(( (10#$HOUR + 1) % 24 )))
+              SLOT="${NEXT_HOUR}:00"
+            fi
+            echo "Time slot: $SLOT"
+            RESPONSE=$(curl -s \
+              -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+              -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+              "${{ secrets.SUPABASE_URL }}/rest/v1/scraper_store_schedule?select=scraper_store_id&scheduled_scrape_utc=eq.${SLOT}&scraper_active=eq.true&active=eq.true")
+            echo "Stores found: $RESPONSE"
+            MATRIX=$(echo "$RESPONSE" | jq -c '[.[] | {scraper_store_id: .scraper_store_id}]')
+          fi
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+      - name: Skip if no stores
+        if: steps.get-stores.outputs.matrix == '[]' || steps.get-stores.outputs.matrix == ''
+        run: echo "No stores scheduled for this time slot — skipping."
+
+  scrape:
+    needs: resolve-stores
+    if: needs.resolve-stores.outputs.matrix != '[]' && needs.resolve-stores.outputs.matrix != '' && needs.resolve-stores.outputs.matrix != 'null'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      matrix:
+        include: ${{ fromJson(needs.resolve-stores.outputs.matrix) }}
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm install
+
+      - run: npx playwright install chromium
+
+      - name: Scrape ${{ matrix.scraper_store_id }}
+        run: node run.js
+        env:
+          RUN_TYPE: dealer
+          SCRAPER_STORE_ID: ${{ matrix.scraper_store_id }}
+          BASE44_CONFIG_URL: ${{ env.BASE44_CONFIG_URL }}
+          BASE44_UPDATE_SCRAPER_RUN_LOG_URL: ${{ env.BASE44_UPDATE_SCRAPER_RUN_LOG_URL }}
+          SCRAPER_API_SECRET: ${{ secrets.SCRAPER_API_SECRET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

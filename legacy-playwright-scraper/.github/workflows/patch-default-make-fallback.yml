@@ -1,0 +1,79 @@
+name: Patch Dealercom Price Fallback
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Patch dealercom fallback pricing
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('run.js')
+          source = path.read_text()
+
+          old = '\n'.join([
+              '      if (!priceText) {',
+              '        const allPrices = Array.from(combinedText.matchAll(/\\$[\\d,]+/g)).map(m => m[0]);',
+              '',
+              '        if (allPrices.length) {',
+              '          priceText = allPrices[allPrices.length - 1];',
+              '          priceStatus = "priced";',
+              '        }',
+              '      }'
+          ])
+
+          new = '\n'.join([
+              '      if (!priceText) {',
+              '        const blockedWords = ["adjustment", "adjustments", "discount", "rebate", "bonus", "cash", "loyalty", "offer", "savings", "allowance", "msrp"];',
+              '        const priceLines = combinedText',
+              '          .split("\\n")',
+              '          .map(line => cleanText(line))',
+              '          .filter(line => line && !blockedWords.some(word => line.toLowerCase().includes(word)));',
+              '',
+              '        const allPrices = priceLines',
+              '          .flatMap(line => Array.from(line.matchAll(/\\$[\\d,]+/g)).map(m => m[0]))',
+              '          .filter(price => Number(price.replace(/[^0-9]/g, "")) >= 10000);',
+              '',
+              '        if (allPrices.length) {',
+              '          priceText = allPrices[allPrices.length - 1];',
+              '          priceStatus = "priced";',
+              '        }',
+              '      }'
+          ])
+
+          if old in source:
+              source = source.replace(old, new, 1)
+              print('Patched dealercom fallback pricing')
+          elif 'const blockedWords = ["adjustment", "adjustments", "discount", "rebate", "bonus", "cash", "loyalty", "offer", "savings", "allowance", "msrp"]' in source:
+              print('dealercom fallback pricing already patched')
+          else:
+              raise SystemExit('Could not find dealercom fallback pricing block')
+
+          path.write_text(source)
+          PY
+
+      - name: Check syntax
+        run: node --check run.js
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add run.js
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Ignore discounts in dealercom fallback pricing"
+            git push
+          fi

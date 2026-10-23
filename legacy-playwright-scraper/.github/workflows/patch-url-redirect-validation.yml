@@ -1,0 +1,117 @@
+name: Patch URL Redirect Validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Patch run.js
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('run.js')
+          source = path.read_text()
+
+          helper = '\n'.join([
+              '',
+              'async function extractPixelMotionModalOptions(page, facetName) {',
+              '  try {',
+              "    const button = page.getByText(new RegExp('^' + facetName + '$', 'i')).first();",
+              '    await button.click({ timeout: 5000 });',
+              '    await page.waitForTimeout(800);',
+              '  } catch (error) {',
+              '    return [];',
+              '  }',
+              '',
+              "  const text = await page.locator('body').innerText();",
+              "  const lines = text.split('\\n').map(line => line.trim()).filter(Boolean);",
+              '  const options = [];',
+              '  const seen = new Set();',
+              '',
+              '  for (const line of lines) {',
+              '    const match = line.match(/^(.+?)\\s*\\(([0-9,]+)\\)$/);',
+              '    if (!match) continue;',
+              '',
+              '    const value = normalizeTextValue(match[1]);',
+              "    const count = Number(match[2].replace(/,/g, ''));",
+              '    const lower = value.toLowerCase();',
+              '',
+              '    if (!value || !Number.isFinite(count)) continue;',
+              "    if (['year','make','model','trim','price','category','transmission','drive train','engine type','fuel type','features','availability'].includes(lower)) continue;",
+              '    if (/^(close|select|view|new|used)$/i.test(value)) continue;',
+              '',
+              '    if (seen.has(lower)) continue;',
+              '    seen.add(lower);',
+              '',
+              '    options.push({ value, count });',
+              '  }',
+              '',
+              '  try {',
+              "    await page.keyboard.press('Escape');",
+              '    await page.waitForTimeout(300);',
+              '  } catch (error) {}',
+              '',
+              '  return options;',
+              '}',
+              ''
+          ])
+
+          if 'async function extractPixelMotionModalOptions' not in source:
+              insert_after = '\n'.join([
+                  'async function getPixelMotionUrlCount(page, url) {',
+                  '  await gotoPage(page, url);',
+                  '  return await getWebsiteTotal(page);',
+                  '}',
+                  ''
+              ])
+              if insert_after not in source:
+                  raise SystemExit('Could not find helper insertion point')
+              source = source.replace(insert_after, insert_after + helper)
+              print('Added Pixel Motion modal helper')
+          else:
+              print('Pixel Motion modal helper already exists')
+
+          old = 'const models = await extractFacetOptionsFromVisibleText(page, facetLabels.model);'
+          new = '\n'.join([
+              'let models = await extractPixelMotionModalOptions(page, facetLabels.model);',
+              '',
+              'if (!models.length) {',
+              '  models = await extractFacetOptionsFromVisibleText(page, facetLabels.model);',
+              '}'
+          ])
+
+          if old in source:
+              source = source.replace(old, new, 1)
+              print('Updated model extraction call')
+          elif 'extractPixelMotionModalOptions(page, facetLabels.model)' in source:
+              print('Model extraction already uses modal helper')
+          else:
+              raise SystemExit('Could not find model extraction line')
+
+          path.write_text(source)
+          PY
+
+      - name: Check syntax
+        run: node --check run.js
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add run.js
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Add Pixel Motion modal model extraction"
+            git push
+          fi

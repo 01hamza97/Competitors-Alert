@@ -1,0 +1,1 @@
+# mktgtrends-competitor-scraper

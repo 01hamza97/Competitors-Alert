@@ -1,0 +1,499 @@
+[
+  {
+    "id": "vmg_1500",
+    "make": "Ram",
+    "canonical_model": "1500",
+    "raw_variants": "Ram 1500|Ram Pickup 1500|1500 Classic|All-New 1500",
+    "sort_order": 1
+  },
+  {
+    "id": "vmg_2500",
+    "make": "Ram",
+    "canonical_model": "2500",
+    "raw_variants": "Ram 2500|Ram Pickup 2500|2500 Heavy Duty",
+    "sort_order": 2
+  },
+  {
+    "id": "vmg_3500",
+    "make": "Ram",
+    "canonical_model": "3500",
+    "raw_variants": "Ram 3500|Ram Pickup 3500|3500 Chassis Cab",
+    "sort_order": 3
+  },
+  {
+    "id": "vmg_promaster",
+    "make": "Ram",
+    "canonical_model": "ProMaster",
+    "raw_variants": "ProMaster|Promaster|ProMaster Cargo Van|ProMaster 1500|ProMaster 2500|ProMaster 3500",
+    "sort_order": 4
+  },
+  {
+    "id": "vmg_f150",
+    "make": "Ford",
+    "canonical_model": "F-150",
+    "raw_variants": "F-150|Ford F-150|F-150 Lightning",
+    "sort_order": 5
+  },
+  {
+    "id": "vmg_f250",
+    "make": "Ford",
+    "canonical_model": "F-250 Super Duty",
+    "raw_variants": "F-250 Super Duty|Super Duty F-250|F-250SD|F-250 SD|F-250",
+    "sort_order": 6
+  },
+  {
+    "id": "vmg_f350",
+    "make": "Ford",
+    "canonical_model": "F-350 Super Duty",
+    "raw_variants": "F-350 Super Duty|Super Duty F-350|F-350SD|F-350 SD|F-350|F-350 Chassis",
+    "sort_order": 7
+  },
+  {
+    "id": "vmg_f450",
+    "make": "Ford",
+    "canonical_model": "F-450 Super Duty",
+    "raw_variants": "F-450 Super Duty|Super Duty F-450|F-450SD|F-450 SD|F-450",
+    "sort_order": 8
+  },
+  {
+    "id": "vmg_bronco",
+    "make": "Ford",
+    "canonical_model": "Bronco",
+    "raw_variants": "Bronco|Ford Bronco",
+    "sort_order": 9
+  },
+  {
+    "id": "vmg_bronco_sport",
+    "make": "Ford",
+    "canonical_model": "Bronco Sport",
+    "raw_variants": "Bronco Sport|Ford Bronco Sport",
+    "sort_order": 10
+  },
+  {
+    "id": "vmg_explorer",
+    "make": "Ford",
+    "canonical_model": "Explorer",
+    "raw_variants": "Explorer|Ford Explorer|Explorer Police Interceptor",
+    "sort_order": 11
+  },
+  {
+    "id": "vmg_expedition",
+    "make": "Ford",
+    "canonical_model": "Expedition",
+    "raw_variants": "Expedition|Ford Expedition",
+    "sort_order": 12
+  },
+  {
+    "id": "vmg_expedition_max",
+    "make": "Ford",
+    "canonical_model": "Expedition MAX",
+    "raw_variants": "Expedition MAX|Expedition Max|Ford Expedition MAX",
+    "sort_order": 13
+  },
+  {
+    "id": "vmg_ranger",
+    "make": "Ford",
+    "canonical_model": "Ranger",
+    "raw_variants": "Ranger|Ford Ranger",
+    "sort_order": 14
+  },
+  {
+    "id": "vmg_maverick",
+    "make": "Ford",
+    "canonical_model": "Maverick",
+    "raw_variants": "Maverick|Ford Maverick",
+    "sort_order": 15
+  },
+  {
+    "id": "vmg_mustang",
+    "make": "Ford",
+    "canonical_model": "Mustang",
+    "raw_variants": "Mustang|Ford Mustang",
+    "sort_order": 16
+  },
+  {
+    "id": "vmg_mustang_mach_e",
+    "make": "Ford",
+    "canonical_model": "Mustang Mach-E",
+    "raw_variants": "Mustang Mach-E|Ford Mustang Mach-E|Mach-E",
+    "sort_order": 17
+  },
+  {
+    "id": "vmg_transit",
+    "make": "Ford",
+    "canonical_model": "Transit",
+    "raw_variants": "Transit|Ford Transit|Transit Commercial|Transit Na|Transit Van|Transit-150|Transit-250|Transit-350",
+    "sort_order": 18
+  },
+  {
+    "id": "vmg_silverado_1500",
+    "make": "Chevrolet",
+    "canonical_model": "Silverado 1500",
+    "raw_variants": "Silverado 1500|Silverado|Chevy Silverado|Silverado&",
+    "sort_order": 19
+  },
+  {
+    "id": "vmg_silverado_2500hd",
+    "make": "Chevrolet",
+    "canonical_model": "Silverado 2500 HD",
+    "raw_variants": "Silverado 2500 HD|Silverado 2500HD|Silverado 2500|2500 HD",
+    "sort_order": 20
+  },
+  {
+    "id": "vmg_silverado_3500hd",
+    "make": "Chevrolet",
+    "canonical_model": "Silverado 3500 HD",
+    "raw_variants": "Silverado 3500 HD|Silverado 3500HD|Silverado 3500|3500 HD|Silverado 3500 HD Chassis Cab",
+    "sort_order": 21
+  },
+  {
+    "id": "vmg_colorado",
+    "make": "Chevrolet",
+    "canonical_model": "Colorado",
+    "raw_variants": "Colorado|Chevy Colorado",
+    "sort_order": 22
+  },
+  {
+    "id": "vmg_tahoe",
+    "make": "Chevrolet",
+    "canonical_model": "Tahoe",
+    "raw_variants": "Tahoe|Chevy Tahoe",
+    "sort_order": 23
+  },
+  {
+    "id": "vmg_suburban",
+    "make": "Chevrolet",
+    "canonical_model": "Suburban",
+    "raw_variants": "Suburban|Chevy Suburban",
+    "sort_order": 24
+  },
+  {
+    "id": "vmg_trax",
+    "make": "Chevrolet",
+    "canonical_model": "Trax",
+    "raw_variants": "Trax|Chevy Trax",
+    "sort_order": 25
+  },
+  {
+    "id": "vmg_trailblazer",
+    "make": "Chevrolet",
+    "canonical_model": "Trailblazer",
+    "raw_variants": "Trailblazer|Chevy Trailblazer",
+    "sort_order": 26
+  },
+  {
+    "id": "vmg_equinox",
+    "make": "Chevrolet",
+    "canonical_model": "Equinox",
+    "raw_variants": "Equinox|Chevy Equinox|Equinox&",
+    "sort_order": 27
+  },
+  {
+    "id": "vmg_equinox_ev",
+    "make": "Chevrolet",
+    "canonical_model": "Equinox EV",
+    "raw_variants": "Equinox EV|Chevy Equinox EV",
+    "sort_order": 28
+  },
+  {
+    "id": "vmg_traverse",
+    "make": "Chevrolet",
+    "canonical_model": "Traverse",
+    "raw_variants": "Traverse|Chevy Traverse|Traverse Limited",
+    "sort_order": 29
+  },
+  {
+    "id": "vmg_blazer",
+    "make": "Chevrolet",
+    "canonical_model": "Blazer",
+    "raw_variants": "Blazer|Chevy Blazer|Blazer&",
+    "sort_order": 30
+  },
+  {
+    "id": "vmg_blazer_ev",
+    "make": "Chevrolet",
+    "canonical_model": "Blazer EV",
+    "raw_variants": "Blazer EV|Chevy Blazer EV",
+    "sort_order": 31
+  },
+  {
+    "id": "vmg_corvette",
+    "make": "Chevrolet",
+    "canonical_model": "Corvette",
+    "raw_variants": "Corvette|Chevy Corvette|Corvette Stingray|Corvette Grand Sport|Corvette Z06|Corvette ZR1|Corvette&",
+    "sort_order": 32
+  },
+  {
+    "id": "vmg_express",
+    "make": "Chevrolet",
+    "canonical_model": "Express",
+    "raw_variants": "Express|Express Cargo|Express Cutaway|Express Passenger|Express 2500|Express 3500|Express&",
+    "sort_order": 33
+  },
+  {
+    "id": "vmg_bolt_ev",
+    "make": "Chevrolet",
+    "canonical_model": "Bolt EV",
+    "raw_variants": "Bolt EV|Bolt|Bolt EUV|Chevy Bolt",
+    "sort_order": 34
+  },
+  {
+    "id": "vmg_sportage",
+    "make": "Kia",
+    "canonical_model": "Sportage",
+    "raw_variants": "Sportage|Kia Sportage",
+    "sort_order": 35
+  },
+  {
+    "id": "vmg_sportage_hybrid",
+    "make": "Kia",
+    "canonical_model": "Sportage Hybrid",
+    "raw_variants": "Sportage Hybrid|Kia Sportage Hybrid",
+    "sort_order": 36
+  },
+  {
+    "id": "vmg_sportage_phev",
+    "make": "Kia",
+    "canonical_model": "Sportage Plug-In Hybrid",
+    "raw_variants": "Sportage Plug-In Hybrid|Sportage PHEV",
+    "sort_order": 37
+  },
+  {
+    "id": "vmg_telluride",
+    "make": "Kia",
+    "canonical_model": "Telluride",
+    "raw_variants": "Telluride|Kia Telluride",
+    "sort_order": 38
+  },
+  {
+    "id": "vmg_telluride_hybrid",
+    "make": "Kia",
+    "canonical_model": "Telluride Hybrid",
+    "raw_variants": "Telluride Hybrid|Kia Telluride Hybrid",
+    "sort_order": 39
+  },
+  {
+    "id": "vmg_sorento",
+    "make": "Kia",
+    "canonical_model": "Sorento",
+    "raw_variants": "Sorento|Kia Sorento",
+    "sort_order": 40
+  },
+  {
+    "id": "vmg_sorento_hybrid",
+    "make": "Kia",
+    "canonical_model": "Sorento Hybrid",
+    "raw_variants": "Sorento Hybrid|Kia Sorento Hybrid",
+    "sort_order": 41
+  },
+  {
+    "id": "vmg_seltos",
+    "make": "Kia",
+    "canonical_model": "Seltos",
+    "raw_variants": "Seltos|Kia Seltos",
+    "sort_order": 42
+  },
+  {
+    "id": "vmg_k4",
+    "make": "Kia",
+    "canonical_model": "K4",
+    "raw_variants": "K4|Kia K4|K4 Hatchback",
+    "sort_order": 43
+  },
+  {
+    "id": "vmg_k5",
+    "make": "Kia",
+    "canonical_model": "K5",
+    "raw_variants": "K5|Kia K5",
+    "sort_order": 44
+  },
+  {
+    "id": "vmg_carnival",
+    "make": "Kia",
+    "canonical_model": "Carnival",
+    "raw_variants": "Carnival|Kia Carnival|Carnival MPV",
+    "sort_order": 45
+  },
+  {
+    "id": "vmg_carnival_hybrid",
+    "make": "Kia",
+    "canonical_model": "Carnival Hybrid",
+    "raw_variants": "Carnival Hybrid|Kia Carnival Hybrid|Carnival MPV Hybrid",
+    "sort_order": 46
+  },
+  {
+    "id": "vmg_ev3",
+    "make": "Kia",
+    "canonical_model": "EV3",
+    "raw_variants": "EV3|Kia EV3|Ev3",
+    "sort_order": 47
+  },
+  {
+    "id": "vmg_ev6",
+    "make": "Kia",
+    "canonical_model": "EV6",
+    "raw_variants": "EV6|Kia EV6",
+    "sort_order": 48
+  },
+  {
+    "id": "vmg_ev9",
+    "make": "Kia",
+    "canonical_model": "EV9",
+    "raw_variants": "EV9|Kia EV9",
+    "sort_order": 49
+  },
+  {
+    "id": "vmg_niro",
+    "make": "Kia",
+    "canonical_model": "Niro",
+    "raw_variants": "Niro|Kia Niro",
+    "sort_order": 50
+  },
+  {
+    "id": "vmg_niro_ev",
+    "make": "Kia",
+    "canonical_model": "Niro EV",
+    "raw_variants": "Niro EV|Kia Niro EV",
+    "sort_order": 51
+  },
+  {
+    "id": "vmg_elantra",
+    "make": "Hyundai",
+    "canonical_model": "Elantra",
+    "raw_variants": "Elantra|Hyundai Elantra",
+    "sort_order": 52
+  },
+  {
+    "id": "vmg_elantra_hybrid",
+    "make": "Hyundai",
+    "canonical_model": "Elantra Hybrid",
+    "raw_variants": "Elantra Hybrid|Hyundai Elantra Hybrid",
+    "sort_order": 53
+  },
+  {
+    "id": "vmg_elantra_n",
+    "make": "Hyundai",
+    "canonical_model": "Elantra N",
+    "raw_variants": "Elantra N|Hyundai Elantra N",
+    "sort_order": 54
+  },
+  {
+    "id": "vmg_sonata",
+    "make": "Hyundai",
+    "canonical_model": "Sonata",
+    "raw_variants": "Sonata|Hyundai Sonata",
+    "sort_order": 55
+  },
+  {
+    "id": "vmg_sonata_hybrid",
+    "make": "Hyundai",
+    "canonical_model": "Sonata Hybrid",
+    "raw_variants": "Sonata Hybrid|Hyundai Sonata Hybrid",
+    "sort_order": 56
+  },
+  {
+    "id": "vmg_sonata_n_line",
+    "make": "Hyundai",
+    "canonical_model": "Sonata N Line",
+    "raw_variants": "Sonata N Line|Sonata N-Line|Sonata N",
+    "sort_order": 57
+  },
+  {
+    "id": "vmg_tucson",
+    "make": "Hyundai",
+    "canonical_model": "Tucson",
+    "raw_variants": "Tucson|Hyundai Tucson",
+    "sort_order": 58
+  },
+  {
+    "id": "vmg_tucson_hybrid",
+    "make": "Hyundai",
+    "canonical_model": "Tucson Hybrid",
+    "raw_variants": "Tucson Hybrid|Hyundai Tucson Hybrid",
+    "sort_order": 59
+  },
+  {
+    "id": "vmg_tucson_phev",
+    "make": "Hyundai",
+    "canonical_model": "Tucson Plug-In Hybrid",
+    "raw_variants": "Tucson Plug-In Hybrid|Tucson Plug-In|Tucson PHEV",
+    "sort_order": 60
+  },
+  {
+    "id": "vmg_santa_fe",
+    "make": "Hyundai",
+    "canonical_model": "Santa Fe",
+    "raw_variants": "Santa Fe|Hyundai Santa Fe",
+    "sort_order": 61
+  },
+  {
+    "id": "vmg_santa_fe_hybrid",
+    "make": "Hyundai",
+    "canonical_model": "Santa Fe Hybrid",
+    "raw_variants": "Santa Fe Hybrid|Hyundai Santa Fe Hybrid",
+    "sort_order": 62
+  },
+  {
+    "id": "vmg_palisade",
+    "make": "Hyundai",
+    "canonical_model": "Palisade",
+    "raw_variants": "Palisade|Hyundai Palisade",
+    "sort_order": 63
+  },
+  {
+    "id": "vmg_palisade_hybrid",
+    "make": "Hyundai",
+    "canonical_model": "Palisade Hybrid",
+    "raw_variants": "Palisade Hybrid|Hyundai Palisade Hybrid",
+    "sort_order": 64
+  },
+  {
+    "id": "vmg_kona",
+    "make": "Hyundai",
+    "canonical_model": "Kona",
+    "raw_variants": "Kona|Hyundai Kona",
+    "sort_order": 65
+  },
+  {
+    "id": "vmg_kona_electric",
+    "make": "Hyundai",
+    "canonical_model": "Kona Electric",
+    "raw_variants": "Kona Electric|Kona EV",
+    "sort_order": 66
+  },
+  {
+    "id": "vmg_santa_cruz",
+    "make": "Hyundai",
+    "canonical_model": "Santa Cruz",
+    "raw_variants": "Santa Cruz|Hyundai Santa Cruz",
+    "sort_order": 67
+  },
+  {
+    "id": "vmg_venue",
+    "make": "Hyundai",
+    "canonical_model": "Venue",
+    "raw_variants": "Venue|Hyundai Venue",
+    "sort_order": 68
+  },
+  {
+    "id": "vmg_ioniq_5",
+    "make": "Hyundai",
+    "canonical_model": "Ioniq 5",
+    "raw_variants": "Ioniq 5|Hyundai Ioniq 5|Ioniq 5 N",
+    "sort_order": 69
+  },
+  {
+    "id": "vmg_ioniq_6",
+    "make": "Hyundai",
+    "canonical_model": "Ioniq 6",
+    "raw_variants": "Ioniq 6|Hyundai Ioniq 6",
+    "sort_order": 70
+  },
+  {
+    "id": "vmg_ioniq_9",
+    "make": "Hyundai",
+    "canonical_model": "Ioniq 9",
+    "raw_variants": "Ioniq 9|Hyundai Ioniq 9",
+    "sort_order": 71
+  }
+]

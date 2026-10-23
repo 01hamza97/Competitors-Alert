@@ -1,0 +1,47 @@
+[
+  {
+    "id": "ilg_autotrader",
+    "store_id": "store_aaron_ford_escondido",
+    "dealership_key": "aaron_ford_escondido",
+    "group_name": "AutoTrader",
+    "raw_sources": "AutoTrader|Auto Trader|Autotrader.com",
+    "party_type": "3rd Party",
+    "sort_order": 1
+  },
+  {
+    "id": "ilg_cargurus",
+    "store_id": "store_aaron_ford_escondido",
+    "dealership_key": "aaron_ford_escondido",
+    "group_name": "CarGurus",
+    "raw_sources": "CarGurus|Car Gurus",
+    "party_type": "3rd Party",
+    "sort_order": 2
+  },
+  {
+    "id": "ilg_dealer_dot_com",
+    "store_id": "store_aaron_ford_escondido",
+    "dealership_key": "aaron_ford_escondido",
+    "group_name": "Dealer.com Website",
+    "raw_sources": "Dealer.com|Website|Dealer Website|ePrice",
+    "party_type": "1st Party",
+    "sort_order": 3
+  },
+  {
+    "id": "ilg_truecar",
+    "store_id": "store_aaron_ford_escondido",
+    "dealership_key": "aaron_ford_escondido",
+    "group_name": "TrueCar",
+    "raw_sources": "TrueCar|True Car",
+    "party_type": "3rd Party",
+    "sort_order": 4
+  },
+  {
+    "id": "ilg_cars_com",
+    "store_id": "store_aaron_ford_escondido",
+    "dealership_key": "aaron_ford_escondido",
+    "group_name": "Cars.com",
+    "raw_sources": "Cars.com|CarsCom",
+    "party_type": "3rd Party",
+    "sort_order": 5
+  }
+]

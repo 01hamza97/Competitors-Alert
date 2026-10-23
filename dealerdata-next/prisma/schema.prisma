@@ -1,0 +1,419 @@
+// Prisma schema for DealerData SaaS
+// Configured for MySQL locally, seamlessly swappable to PostgreSQL in production
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ── SaaS Accounts & Multi-Tenancy ─────────────────────────────────────────────
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  permissions String   @db.Text // JSON string array of permission keys
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model User {
+  id                      String    @id @default(cuid())
+  email                   String    @unique
+  password                String    @db.VarChar(500)
+  fullName                String?   @map("full_name")
+  role                    String    @default("user") // admin, manager, sales_manager, bdc_director, analyst, user, or custom slug
+  company                 String?
+  plan                    String    @default("Starter") // Starter, Pro, Enterprise
+  dealerGroupIds          String?   @map("dealer_group_ids") @db.Text
+  storeIds                String?   @map("store_ids") @db.Text
+  dailySummaryEnabled     Boolean   @default(true) @map("daily_summary_enabled")
+  appointmentsEnabled     Boolean   @default(true) @map("appointments_enabled")
+  competitorReportEnabled Boolean   @default(false) @map("competitor_report_enabled")
+  customPermissions       String?   @map("custom_permissions") @db.Text
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+
+  sessions                Session[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model DealerGroup {
+  id              String   @id
+  name            String
+  slug            String   @unique
+  principalName   String?  @map("principal_name")
+  principalEmails String?  @map("principal_emails") @db.Text
+  isSingleStore   Boolean  @default(false) @map("is_single_store")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  stores          Store[]
+
+  @@map("dealer_groups")
+}
+
+model Store {
+  id                 String       @id
+  groupId            String       @map("group_id")
+  name               String
+  dealershipKey      String       @unique @map("dealership_key")
+  scraperStoreId     String?      @map("scraper_store_id")
+  timezone           String       @default("America/Los_Angeles")
+  newInventoryUrl    String?      @map("new_inventory_url") @db.Text
+  usedInventoryUrl   String?      @map("used_inventory_url") @db.Text
+  specialsUrl        String?      @map("specials_url") @db.Text
+  crawlSpecials      Boolean      @default(false) @map("crawl_specials")
+  scraperPlatform    String?      @map("scraper_platform")
+  scraperDefaultMake String?      @map("scraper_default_make")
+  scraperActive      Boolean      @default(true) @map("scraper_active")
+  active             Boolean      @default(true)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  dealerGroup        DealerGroup  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  competitors        StoreCompetitor[]
+
+  @@index([groupId])
+  @@map("stores")
+}
+
+model StoreCompetitor {
+  id               String   @id @default(cuid())
+  storeId          String   @map("store_id")
+  competitorName   String   @map("competitor_name")
+  competitorKey    String   @map("competitor_key")
+  newInventoryUrl  String?  @map("new_inventory_url") @db.Text
+  usedInventoryUrl String?  @map("used_inventory_url") @db.Text
+  specialsUrl      String?  @map("specials_url") @db.Text
+  crawlSpecials    Boolean  @default(false) @map("crawl_specials")
+  scraperPlatform  String?  @map("scraper_platform")
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  store            Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@map("store_competitors")
+}
+
+model InternetLeadGroup {
+  id            String   @id @default(cuid())
+  groupId       String?  @map("group_id")
+  storeId       String?  @map("store_id")
+  dealershipKey String?  @map("dealership_key")
+  groupName     String   @map("group_name")
+  rawSources    String   @map("raw_sources") @db.Text
+  partyType     String?  @default("3rd Party") @map("party_type")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("internet_lead_groups")
+}
+
+model VehicleModelGroup {
+  id        String   @id @default(cuid())
+  storeId   String?  @map("store_id")
+  name      String
+  models    String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("vehicle_model_groups")
+}
+
+model PendingUser {
+  id                      String   @id @default(cuid())
+  email                   String   @unique
+  fullName                String?  @map("full_name")
+  role                    String   @default("user")
+  dealerGroupIds          String?  @map("dealer_group_ids") @db.Text
+  storeIds                String?  @map("store_ids") @db.Text
+  invitedBy               String?  @map("invited_by")
+  invited                 Boolean  @default(false)
+  dailySummaryEnabled     Boolean  @default(true) @map("daily_summary_enabled")
+  appointmentsEnabled     Boolean  @default(true) @map("appointments_enabled")
+  competitorReportEnabled Boolean  @default(false) @map("competitor_report_enabled")
+  createdAt               DateTime @default(now()) @map("created_at")
+
+  @@map("pending_users")
+}
+
+// ── Operational & Analytical Dealership Data ──────────────────────────────────
+
+model DailyLeadPerformance {
+  id            String   @id @default(cuid())
+  dealerId      String   @map("dealer_id")
+  reportDate    String   @map("report_date") // YYYY-MM-DD
+  leadSource    String   @map("lead_source")
+  leadType      String   @map("lead_type")   // Internet, Walk-In, Phone, etc.
+  inventoryType String   @map("inventory_type") // New, Used, Certified
+  partyType     String?  @default("3rd Party") @map("party_type") // 1st Party, 3rd Party
+  goodLeads     Int      @default(0) @map("good_leads")
+  apptsSet      Int      @default(0) @map("appts_set")
+  sold          Int      @default(0)
+  gross         Float    @default(0)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([dealerId, reportDate])
+  @@index([leadType])
+  @@index([leadSource])
+  @@map("daily_lead_performance")
+}
+
+model AppointmentSnapshot {
+  id              String   @id @default(cuid())
+  dealerId        String   @map("dealer_id")
+  snapshotDate    String   @map("snapshot_date")    // YYYY-MM-DD
+  appointmentDate String   @map("appointment_date") // YYYY-MM-DD
+  appointmentTime String?  @map("appointment_time") // HH:MM
+  customerName    String?  @map("customer_name")
+  salespersonName String?  @map("salesperson_name")
+  status          String   @default("Scheduled")   // Scheduled, Confirmed, Completed, No-Show, Cancelled
+  leadSource      String?  @map("lead_source")
+  inventoryType   String?  @map("inventory_type")
+  vehicleInterest String?  @map("vehicle_interest")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([dealerId, snapshotDate])
+  @@index([appointmentDate])
+  @@map("appointment_snapshots")
+}
+
+model DailySalespersonActivity {
+  id                String   @id @default(cuid())
+  dealerId          String   @map("dealer_id")
+  reportDate        String   @map("report_date") // YYYY-MM-DD
+  salespersonName   String   @map("salesperson_name")
+  outboundCalls     Int      @default(0) @map("outbound_calls")
+  inboundCalls      Int      @default(0) @map("inbound_calls")
+  textMessages      Int      @default(0) @map("text_messages")
+  emailsSent        Int      @default(0) @map("emails_sent")
+  appointmentsSet   Int      @default(0) @map("appointments_set")
+  appointmentsShown Int      @default(0) @map("appointments_shown")
+  unitsSold         Float    @default(0) @map("units_sold")
+  totalGross        Float    @default(0) @map("total_gross")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@index([dealerId, reportDate])
+  @@index([salespersonName])
+  @@map("daily_salesperson_activity")
+}
+
+model CompetitorVehicleInventory {
+  id              String   @id @default(cuid())
+  dealerId        String   @map("dealer_id")
+  snapshotDate    String   @map("snapshot_date") // YYYY-MM-DD
+  vin             String
+  stockNumber     String?  @map("stock_number")
+  year            Int
+  make            String
+  model           String
+  trim            String?
+  bodyStyle       String?  @map("body_style")
+  inventoryType   String   @default("New") @map("inventory_type")
+  listPrice       Float    @map("list_price")
+  msrp            Float?
+  dealerDiscount  Float?   @map("dealer_discount")
+  mileage         Int?
+  daysInStock     Int?     @map("days_in_stock")
+  vehicleUrl      String?  @db.Text @map("vehicle_url")
+  imageUrl        String?  @db.Text @map("image_url")
+  domain          String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([dealerId, snapshotDate])
+  @@index([make, model])
+  @@index([domain])
+  @@map("competitor_vehicle_inventory")
+}
+
+model CompetitorVehicleSpecial {
+  id              String    @id @default(cuid())
+  dealerId        String    @map("dealer_id")
+  offerDealerName String?   @map("offer_dealer_name")
+  snapshotDate    String    @map("snapshot_date") // YYYY-MM-DD
+  year            Int
+  make            String
+  model           String
+  trim            String?
+  specialType     String    @default("lease") @map("special_type") // lease, finance, cash
+  monthlyPayment  Float?    @map("monthly_payment")
+  termMonths      Int?      @map("term_months")
+  downPayment     Float?    @map("down_payment")
+  apr             Float?
+  msrp            Float?
+  title           String?
+  disclaimer      String?   @db.Text
+  expirationDate  String?   @map("expiration_date")
+  specialUrl      String?   @db.Text @map("special_url")
+  imageUrl        String?   @db.Text @map("image_url")
+  domain          String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([dealerId, snapshotDate])
+  @@index([offerDealerName])
+  @@index([domain])
+  @@map("competitor_vehicle_specials")
+}
+
+model CompetitorServiceSpecial {
+  id              String    @id @default(cuid())
+  dealerId        String    @map("dealer_id")
+  offerDealerName String?   @map("offer_dealer_name")
+  snapshotDate    String    @map("snapshot_date") // YYYY-MM-DD
+  title           String
+  description     String?   @db.Text
+  category        String    @default("Maintenance") // Oil Change, Brakes, Tires, Batteries, General
+  regularPrice    Float?    @map("regular_price")
+  specialPrice    Float?    @map("special_price")
+  discountAmount  Float?    @map("discount_amount")
+  disclaimer      String?   @db.Text
+  expirationDate  String?   @map("expiration_date")
+  couponCode      String?   @map("coupon_code")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@index([dealerId, snapshotDate])
+  @@index([offerDealerName])
+  @@map("competitor_service_specials")
+}
+
+model CompetitorInventoryPricing {
+  id            String   @id @default(cuid())
+  dealerId      String   @map("dealer_id")
+  competitorId  String?  @map("competitor_id")
+  snapshotDate  String   @map("snapshot_date") // YYYY-MM-DD
+  model         String
+  trim          String?
+  inventoryType String   @default("New") @map("inventory_type")
+  avgPrice      Float    @map("avg_price")
+  minPrice      Float    @map("min_price")
+  maxPrice      Float    @map("max_price")
+  count         Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([dealerId, snapshotDate])
+  @@index([competitorId])
+  @@map("competitor_inventory_pricing")
+}
+
+model SpecialsStaging {
+  id                String   @id @default(cuid())
+  dealerId          String   @map("dealer_id")
+  offerDealerName   String?  @map("offer_dealer_name")
+  clientDealerName  String?  @map("client_dealer_name")
+  snapshotDate      String   @map("snapshot_date") // YYYY-MM-DD
+  specialType       String   @default("vehicle") @map("special_type") // vehicle, service
+  title             String?
+  details           String?  @db.Text
+  status            String   @default("pending") // pending, approved, rejected
+  rawText           String?  @db.Text @map("raw_text")
+  extractedJson     String?  @db.Text @map("extracted_json")
+  imageHash         String?  @map("image_hash")
+  domain            String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([dealerId, status])
+  @@index([imageHash])
+  @@index([domain])
+  @@map("specials_staging")
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  title       String
+  description String?  @db.Text
+  category    String   @default("info") // activity, email, spurt, alert
+  read        Boolean  @default(false)
+  link        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model ScraperRunLog {
+  id                 String    @id @default(cuid())
+  runId              String    @map("run_id")
+  storeId            String?   @map("store_id")
+  dealerName         String?   @map("dealer_name")
+  targetUrl          String?   @db.Text @map("target_url")
+  domain             String?
+  mode               String?   @default("auto")
+  status             String?   @default("queued") // queued, running, complete, failed
+  totalListingsFound Int?      @default(0) @map("total_listings_found")
+  newListingsCount   Int?      @default(0) @map("new_listings_count")
+  usedListingsCount  Int?      @default(0) @map("used_listings_count")
+  pagesCrawled       Int?      @default(0) @map("pages_crawled")
+  storageType        String?   @default("local") @map("storage_type") // local, r2
+  r2ManifestUrl      String?   @db.Text @map("r2_manifest_url")
+  localManifestPath  String?   @db.Text @map("local_manifest_path")
+  outputFile         String?   @db.Text @map("output_file")
+  logOutput          String?   @db.MediumText @map("log_output")
+  errorMessage       String?   @db.Text @map("error_message")
+  startedAt          DateTime? @map("started_at")
+  completedAt        DateTime? @map("completed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([storeId])
+  @@index([status])
+  @@index([domain])
+  @@index([createdAt])
+  @@map("scraper_run_logs")
+}
+
+model WorkspaceSpecialOverride {
+  id             String   @id @default(cuid())
+  storeId        String   @map("store_id")
+  specialId      String   @map("special_id")
+  year           Int?
+  make           String?
+  model          String?
+  trim           String?
+  specialType    String?  @map("special_type")
+  offerType      String?  @map("offer_type")
+  monthlyPayment Float?   @map("monthly_payment")
+  termMonths     Int?     @map("term_months")
+  downPayment    Float?   @map("down_payment")
+  apr            Float?
+  msrp           Float?
+  offerDetails   String?  @map("offer_details")
+  title          String?
+  disclaimer     String?  @db.Text
+  imageUrl       String?  @db.Text @map("image_url")
+  isHidden       Boolean  @default(false) @map("is_hidden")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([storeId, specialId])
+  @@index([storeId])
+  @@map("workspace_special_overrides")
+}
+

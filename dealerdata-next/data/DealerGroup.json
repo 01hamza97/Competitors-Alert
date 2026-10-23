@@ -1,0 +1,42 @@
+[
+  {
+    "id": "grp_aaron",
+    "name": "Aaron Automotive Group",
+    "slug": "aaron_automotive_group",
+    "principal_name": "Aaron Automotive Group",
+    "principal_emails": "reports@aaronautogroup.com",
+    "is_single_store": false
+  },
+  {
+    "id": "grp_norm_reeves",
+    "name": "Norm Reeves",
+    "slug": "norm_reeves",
+    "principal_name": "Norm Reeves Auto",
+    "principal_emails": "gm@normreeves.com",
+    "is_single_store": true
+  },
+  {
+    "id": "dealergroup_1792653430946_zepyn",
+    "name": "Tuttle Click Hyundai",
+    "created_at": "2026-10-22T07:17:10.946Z",
+    "updated_at": "2026-10-22T07:17:10.946Z"
+  },
+  {
+    "id": "dealergroup_1792686286527_ibqpq",
+    "name": "Harbor",
+    "created_at": "2026-10-22T16:24:46.527Z",
+    "updated_at": "2026-10-22T16:24:46.527Z"
+  },
+  {
+    "id": "dealergroup_1792686749853_bpvi9",
+    "name": "Covina KIA",
+    "created_at": "2026-10-22T16:32:29.853Z",
+    "updated_at": "2026-10-22T16:32:29.854Z"
+  },
+  {
+    "id": "dealergroup_1792687110164_8eitu",
+    "name": "Waldorf Ford",
+    "created_at": "2026-10-22T16:38:30.164Z",
+    "updated_at": "2026-10-22T16:38:30.164Z"
+  }
+]

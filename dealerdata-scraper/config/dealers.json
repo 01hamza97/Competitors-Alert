@@ -1,0 +1,1070 @@
+[
+  {
+    "scraper_store_id": "aaron_cdjr",
+    "store_name": "Aaron CDJR",
+    "group_id": "aaron_automotive_group",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Aaron CDJR",
+        "competitor_id": "aaron_cdjr",
+        "dealer_type": "client",
+        "platform": "dealercom",
+        "new_price_labels": ["Net Price", "Total Price"],
+        "new_inventory_url": "https://www.aaroncdjr.com/new-inventory/index.htm",
+        "used_inventory_url": "https://www.aaroncdjr.com/used-inventory/index.htm?accountId=aaronchryslerdodgejeepramcllc",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.aaroncdjr.com/new-inventory/index.htm?year=2024",
+            "make": "https://www.aaroncdjr.com/new-inventory/index.htm?year=2024&make=Dodge",
+            "model": "https://www.aaroncdjr.com/new-inventory/index.htm?year=2024&make=Dodge&model=Hornet",
+            "trim": "https://www.aaroncdjr.com/new-inventory/index.htm?year=2024&make=Dodge&model=Hornet&trim=GT%20Plus"
+          },
+          "used": {
+            "year": "https://www.aaroncdjr.com/used-inventory/index.htm?year=2022&accountId=aaronchryslerdodgejeepramcllc",
+            "make": "https://www.aaroncdjr.com/used-inventory/index.htm?year=2022&make=Hyundai&accountId=aaronchryslerdodgejeepramcllc",
+            "model": "https://www.aaroncdjr.com/used-inventory/index.htm?year=2022&make=Hyundai&model=Kona%20Electric&accountId=aaronchryslerdodgejeepramcllc",
+            "trim": "https://www.aaroncdjr.com/used-inventory/index.htm?year=2022&make=Hyundai&model=Kona%20Electric&trim=Limited&accountId=aaronchryslerdodgejeepramcllc"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Moss Bros CDJR",
+        "competitor_id": "moss_bros_cdjr",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_price_labels": ["Sale Price", "Net Cost"],
+        "new_inventory_url": "https://www.mossbroscjdrriverside.com/new-inventory/index.htm",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.mossbroscjdrriverside.com/new-inventory/index.htm?year=2025-2025",
+            "make": "https://www.mossbroscjdrriverside.com/new-inventory/index.htm?year=2025-2025&make=Jeep",
+            "model": "https://www.mossbroscjdrriverside.com/new-inventory/index.htm?year=2025-2025&make=Jeep&model=Wrangler",
+            "trim": "https://www.mossbroscjdrriverside.com/new-inventory/index.htm?year=2025-2025&make=Jeep&model=Wrangler&trim=Rubicon"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Ontario CDJR",
+        "competitor_id": "ontario_cdjr",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_location_field": "custom_text_3",
+        "api_location_values": ["JCDRF Ontario"],
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/97410/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "new_price_labels": ["Net Price"],
+        "new_inventory_url": "https://www.jcofontario.com/new-vehicles/?_dFR%5Blightning.isPolice%5D%5B0%5D=No&_dFR%5Blocation_filter%5D%5B0%5D=JCDRF%2520Ontario&_dFR%5Btype%5D%5B0%5D=New",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.jcofontario.com/new-vehicles/?idx=high_to_low&_dFR%5Blightning.isPolice%5D%5B0%5D=No&_dFR%5Blocation_filter%5D%5B0%5D=JCDRF%2520Ontario&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2027",
+            "make": "https://www.jcofontario.com/new-vehicles/?idx=high_to_low&_dFR%5Blightning.isPolice%5D%5B0%5D=No&_dFR%5Blocation_filter%5D%5B0%5D=JCDRF%2520Ontario&_dFR%5Bmake%5D%5B0%5D=Chrysler&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2027",
+            "model": "https://www.jcofontario.com/new-vehicles/?idx=high_to_low&_dFR%5Blightning.isPolice%5D%5B0%5D=No&_dFR%5Blocation_filter%5D%5B0%5D=JCDRF%2520Ontario&_dFR%5Bmake%5D%5B0%5D=Chrysler&_dFR%5Bmodel%5D%5B0%5D=Pacifica&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2027",
+            "trim": "https://www.jcofontario.com/new-vehicles/?idx=high_to_low&_dFR%5Blightning.isPolice%5D%5B0%5D=No&_dFR%5Blocation_filter%5D%5B0%5D=JCDRF%2520Ontario&_dFR%5Bmake%5D%5B0%5D=Chrysler&_dFR%5Bmodel%5D%5B0%5D=Pacifica&_dFR%5Btrim%5D%5B0%5D=Select&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2027"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "J Star CDJR",
+        "competitor_id": "j_star_cdjr",
+        "dealer_type": "competitor",
+        "platform": "pixelmotion",
+        "new_price_labels": ["Net Price"],
+        "new_inventory_url": "https://www.jstarcdjrofanaheimhills.com/inventory/new/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.jstarcdjrofanaheimhills.com/inventory/new/2026/",
+            "make": "https://www.jstarcdjrofanaheimhills.com/inventory/new/2026/Dodge/",
+            "model": "https://www.jstarcdjrofanaheimhills.com/inventory/new/2026/Dodge/Durango/",
+            "trim": "https://www.jstarcdjrofanaheimhills.com/inventory/new/2026/Dodge/Durango/Durango-Gt-Plus-Awd-Hemi-V8/"
+          }
+        },
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "aaron_chevrolet",
+    "competitor_id": "aaron_chevrolet",
+    "store_name": "Aaron Chevrolet",
+    "default_make": "Chevrolet",
+    "group_id": "aaron_automotive_group",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Aaron Chevrolet",
+        "competitor_id": "aaron_chevrolet",
+        "dealer_type": "client",
+        "platform": "dealercom",
+        "new_price_labels": ["Net Price", "Total Price"],
+        "new_inventory_url": "https://www.aaronchevy.com/new-inventory/index.htm",
+        "used_inventory_url": "https://www.aaronchevy.com/used-inventory/index.htm?accountId=aaronchevroletlakeelsinore",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.aaronchevy.com/new-inventory/index.htm?year=2025",
+            "model": "https://www.aaronchevy.com/new-inventory/index.htm?year=2025&model=Equinox%20EV",
+            "trim": "https://www.aaronchevy.com/new-inventory/index.htm?year=2025&model=Equinox%20EV&trim=LT"
+          },
+          "used": {
+            "year": "https://www.aaronchevy.com/used-inventory/index.htm?accountId=aaronchevroletlakeelsinore&year=2024-2024",
+            "make": "https://www.aaronchevy.com/used-inventory/index.htm?accountId=aaronchevroletlakeelsinore&year=2024-2024&make=Chevrolet",
+            "model": "https://www.aaronchevy.com/used-inventory/index.htm?accountId=aaronchevroletlakeelsinore&year=2024-2024&make=Chevrolet&model=Silverado%201500",
+            "trim": "https://www.aaronchevy.com/used-inventory/index.htm?accountId=aaronchevroletlakeelsinore&year=2024-2024&make=Chevrolet&model=Silverado%201500&trim=LT%20Trail%20Boss"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Paradise Chevrolet",
+        "competitor_id": "paradise_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealeron",
+        "api_url": "https://www.paradiseautos.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/16527/3169649?host=www.paradiseautos.com&baseFilter=dHlwZSA9ICduJw==&displayCardsShown=NaN",
+        "new_price_labels": ["Total Price"],
+        "new_inventory_url": "https://www.paradiseautos.com/searchnew.aspx",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.paradiseautos.com/searchnew.aspx?yearrange=2026-2026",
+            "make": "https://www.paradiseautos.com/searchnew.aspx?yearrange=2026-2026&Make=Chevrolet",
+            "model": "https://www.paradiseautos.com/searchnew.aspx?yearrange=2026-2026&Make=Chevrolet&ModelAndTrim=Blazer",
+            "trim": "https://www.paradiseautos.com/searchnew.aspx?yearrange=2026-2026&Make=Chevrolet&ModelAndTrim=Blazer:2LT"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Tim Moran Chevrolet",
+        "competitor_id": "tim_moran_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/6067171/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_inventory_types": ["New", "CTP", "Demo"],
+        "api_type_slug": ["New"],
+        "api_sort_field": "custom_text_1",
+        "api_sort_order": "asc",
+        "new_price_labels": ["Net Price"],
+        "new_inventory_url": "https://www.timmoranchevy.com/new-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.timmoranchevy.com/new-vehicles/?_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "make": "https://www.timmoranchevy.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Chevrolet&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "model": "https://www.timmoranchevy.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Chevrolet&_dFR%5Bmodel%5D%5B0%5D=Equinox&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "trim": "https://www.timmoranchevy.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Chevrolet&_dFR%5Bmodel%5D%5B0%5D=Equinox&_dFR%5Btrim%5D%5B0%5D=RS&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Moss Bros Chevrolet",
+        "competitor_id": "moss_bros_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_price_labels": ["Net Cost", "Sale Price"],
+        "new_inventory_url": "https://www.mossbroschevroletmorenovalley.com/new-inventory/index.htm",
+        "skip_make_param": true,
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.mossbroschevroletmorenovalley.com/new-inventory/index.htm?year=2026-2026",
+            "model": "https://www.mossbroschevroletmorenovalley.com/new-inventory/index.htm?year=2026-2026&model=Colorado",
+            "trim": "https://www.mossbroschevroletmorenovalley.com/new-inventory/index.htm?year=2026-2026&model=Colorado&trim=Trail%20Boss"
+          }
+        },
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "aaron_ford_escondido",
+    "store_name": "Aaron Ford Escondido",
+    "default_make": "Ford",
+    "group_id": "aaron_automotive_group",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Aaron Ford Escondido",
+        "competitor_id": "aaron_ford_escondido",
+        "dealer_type": "client",
+        "platform": "dealercom",
+        "new_price_labels": ["Net Price", "Total Price", "Net Price (Includes $85 Doc Fee)"],
+        "new_inventory_url": "https://www.aaronfordofescondido.com/new-inventory/index.htm?accountId=aaronescondidofordfd",
+        "used_inventory_url": "https://www.aaronfordofescondido.com/used-inventory/index.htm?accountId=aaronescondidofordfd",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.aaronfordofescondido.com/new-inventory/index.htm?accountId=aaronescondidofordfd&year=2025",
+            "model": "https://www.aaronfordofescondido.com/new-inventory/index.htm?accountId=aaronescondidofordfd&year=2025&model=Maverick",
+            "trim": "https://www.aaronfordofescondido.com/new-inventory/index.htm?accountId=aaronescondidofordfd&year=2025&model=Maverick&trim=XLT"
+          },
+          "used": {
+            "year": "https://www.aaronfordofescondido.com/used-inventory/index.htm?accountId=aaronescondidofordfd&year=2022",
+            "make": "https://www.aaronfordofescondido.com/used-inventory/index.htm?accountId=aaronescondidofordfd&year=2022&make=Mercedes-Benz",
+            "model": "https://www.aaronfordofescondido.com/used-inventory/index.htm?accountId=aaronescondidofordfd&year=2022&make=Mercedes-Benz&model=GLC",
+            "trim": "https://www.aaronfordofescondido.com/used-inventory/index.htm?accountId=aaronescondidofordfd&year=2022&make=Mercedes-Benz&model=GLC&trim=GLC%20300"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "North County Ford",
+        "competitor_id": "north_county_ford",
+        "dealer_type": "competitor",
+        "platform": "dealeron",
+        "api_url": "https://www.northcountyford.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/22847/2015962",
+        "new_price_labels": ["North County Ford Discount", "North County Ford Price", "MSRP"],
+        "new_inventory_url": "https://www.northcountyford.com/searchnew.aspx",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.northcountyford.com/searchnew.aspx?yearrange=2025-2025",
+            "make": "https://www.northcountyford.com/searchnew.aspx?yearrange=2025-2025&Make=Ford",
+            "model": "https://www.northcountyford.com/searchnew.aspx?yearrange=2025-2025&Make=Ford&ModelAndTrim=Bronco%20Sport",
+            "trim": "https://www.northcountyford.com/searchnew.aspx?yearrange=2025-2025&Make=Ford&ModelAndTrim=Bronco%20Sport:Big%20Bend*REGINLINE"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Encinitas Ford",
+        "competitor_id": "encinitas_ford",
+        "dealer_type": "competitor",
+        "platform": "autofi",
+        "api_url": "https://hippo.prod.core.autofi.io/api/v2/vehicles",
+        "autofi_dealer_id": "2EX4",
+        "use_autofi_page_price_override": true,
+        "use_autofi_missing_vin_page_fallback": true,
+        "api_limit": 1000,
+        "new_inventory_url": "https://www.encinitasford.com/inventory/new-vehicles",
+        "new_price_labels": ["Selling Price", "MSRP"],
+        "active": true
+      },
+      {
+        "dealer_name": "Ken Grody Ford Carlsbad",
+        "competitor_id": "ken_grody_ford_carlsbad",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/24737/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_inventory_types": ["New", "CTP", "Demo"],
+        "api_type_slug": ["New"],
+        "api_sort_field": "custom_text_1",
+        "api_sort_order": "asc",
+        "api_location_field": "custom_text_12",
+        "api_location_values": ["Ken Grody Ford of Carlsbad - 5555 Paseo Del Norte Carlsbad, CA 92008"],
+        "api_sort": [
+          { "field": "custom_text_19", "order": "asc" },
+          { "field": "low_price", "order": "asc" }
+        ],
+        "new_price_labels": ["Net Price**"],
+        "new_inventory_url": "https://www.kengrodyfordsandiego.com/new-vehicles/?_dFR%5BLocation%5D%5B0%5D=Ken%2520Grody%2520Ford%2520of%2520Carlsbad%2520-%25205555%2520Paseo%2520Del%2520Norte%2520Carlsbad%252C%2520CA%252092008&_dFR%5Btype%5D%5B0%5D=New",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.kengrodyfordsandiego.com/new-vehicles/?_dFR%5BLocation%5D%5B0%5D=Ken%2520Grody%2520Ford%2520of%2520Carlsbad%2520-%25205555%2520Paseo%2520Del%2520Norte%2520Carlsbad%252C%2520CA%252092008&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "make": "https://www.kengrodyfordsandiego.com/new-vehicles/?_dFR%5BLocation%5D%5B0%5D=Ken%2520Grody%2520Ford%2520of%2520Carlsbad%2520-%25205555%2520Paseo%2520Del%2520Norte%2520Carlsbad%252C%2520CA%252092008&_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "model": "https://www.kengrodyfordsandiego.com/new-vehicles/?_dFR%5BLocation%5D%5B0%5D=Ken%2520Grody%2520Ford%2520of%2520Carlsbad%2520-%25205555%2520Paseo%2520Del%2520Norte%2520Carlsbad%252C%2520CA%252092008&_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=F-150&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "trim": "https://www.kengrodyfordsandiego.com/new-vehicles/?_dFR%5BLocation%5D%5B0%5D=Ken%2520Grody%2520Ford%2520of%2520Carlsbad%2520-%25205555%2520Paseo%2520Del%2520Norte%2520Carlsbad%252C%2520CA%252092008&_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=F-150&_dFR%5Btrim%5D%5B0%5D=Raptor&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025"
+          }
+        },
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "aaron_ford_lake_elsinore",
+    "store_name": "Aaron Ford Lake Elsinore",
+    "default_make": "Ford",
+    "group_id": "aaron_automotive_group",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Aaron Ford Lake Elsinore",
+        "competitor_id": "aaron_ford_lake_elsinore",
+        "dealer_type": "client",
+        "platform": "dealercom",
+        "new_price_labels": ["Net Price", "Total Price"],
+        "new_inventory_url": "https://www.aaronfordoflakeelsinore.com/new-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd",
+        "used_inventory_url": "https://www.aaronfordoflakeelsinore.com/used-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.aaronfordoflakeelsinore.com/new-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd&year=2025",
+            "model": "https://www.aaronfordoflakeelsinore.com/new-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd&year=2025&model=Maverick",
+            "trim": "https://www.aaronfordoflakeelsinore.com/new-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd&year=2025&model=Maverick&trim=XLT"
+          },
+          "used": {
+            "year": "https://www.aaronfordoflakeelsinore.com/used-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd&year=2023",
+            "make": "https://www.aaronfordoflakeelsinore.com/used-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd&year=2023&make=Ford",
+            "model": "https://www.aaronfordoflakeelsinore.com/used-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd&year=2023&make=Ford&model=F-150",
+            "trim": "https://www.aaronfordoflakeelsinore.com/used-inventory/index.htm?accountId=aaronfordlakeelsinorefordfd&year=2023&make=Ford&model=F-150&trim=Lariat"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Gosch Ford Temecula",
+        "competitor_id": "gosch_ford_temecula",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "dealerinspire_facet_fields": {
+          "year": "year",
+          "make": "make",
+          "model": "model",
+          "trim": "trim"
+        },
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/6066954/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "api_sort": [
+          {
+            "field": "make",
+            "order": "asc",
+            "scores": {
+              "ford": 1
+            },
+            "default": 2
+          },
+          {
+            "field": "low_price",
+            "order": "asc"
+          }
+        ],
+        "new_price_labels": ["Total Price"],
+        "new_inventory_url": "https://www.goschfordtemecula.com/new-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.goschfordtemecula.com/new-vehicles/?_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "make": "https://www.goschfordtemecula.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "model": "https://www.goschfordtemecula.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=Bronco%2520Sport&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "trim": "https://www.goschfordtemecula.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=Bronco%2520Sport&_dFR%5Btrim%5D%5B0%5D=Big%2520Bend%25C2%25AE&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Tim Moran Ford",
+        "competitor_id": "tim_moran_ford",
+        "dealer_type": "competitor",
+        "platform": "teamvelocity",
+        "teamvelocity_account_id": "36214",
+        "teamvelocity_test_vdp_url": "https://www.timmoranford.com/viewdetails/new/1ftew2kp1tfa98953/2026-ford-f-150-crew-cab-pickup?type=cash",
+        "teamvelocity_make": "Ford",
+        "new_inventory_url": "https://www.timmoranford.com/inventory/new",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.timmoranford.com/inventory/new/ford?paymenttype=cash&years=2025&intransit=true&instock=true&inproduction=true",
+            "model": "https://www.timmoranford.com/inventory/new/ford/super-duty-f-550-drw?paymenttype=cash&years=2025&intransit=true&instock=true&inproduction=true",
+            "trim": "https://www.timmoranford.com/inventory/new/ford/super-duty-f-550-drw?trim=xl&paymenttype=cash&years=2025&sorttype=priceltoh&intransit=true&instock=true&inproduction=true"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Raceway Ford",
+        "competitor_id": "raceway_ford",
+        "dealer_type": "competitor",
+        "platform": "autofi",
+        "api_url": "https://hippo.prod.core.autofi.io/api/v2/vehicles",
+        "autofi_dealer_id": "1TPP",
+        "use_autofi_page_price_override": true,
+        "use_autofi_missing_vin_page_fallback": true,
+        "api_limit": 1000,
+        "new_inventory_url": "https://www.racewayford.com/inventory/new-vehicles/",
+        "new_price_labels": ["Selling Price", "MSRP"],
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "aaron_ford_of_poway",
+    "store_name": "Aaron Ford of Poway",
+    "default_make": "Ford",
+    "group_id": "aaron_automotive_group",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Aaron Ford of Poway",
+        "competitor_id": "aaron_ford_of_poway",
+        "dealer_type": "client",
+        "platform": "dealercom",
+        "new_price_labels": ["Net Price", "Total Price", "MSRP1"],
+        "new_inventory_url": "https://www.aaronfordofpoway.com/new-inventory/index.htm?accountId=aaronofpowayfordfd",
+        "used_inventory_url": "https://www.aaronfordofpoway.com/used-inventory/index.htm?accountId=aaronofpowayfordfd",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.aaronfordofpoway.com/new-inventory/index.htm?accountId=aaronofpowayfordfd&year=2024",
+            "model": "https://www.aaronfordofpoway.com/new-inventory/index.htm?accountId=aaronofpowayfordfd&year=2025&model=Maverick",
+            "trim": "https://www.aaronfordofpoway.com/new-inventory/index.htm?accountId=aaronofpowayfordfd&year=2025&model=Maverick&trim=XLT"
+          },
+          "used": {
+            "year": "https://www.aaronfordofpoway.com/used-inventory/index.htm?accountId=aaronofpowayfordfd&year=2024",
+            "make": "https://www.aaronfordofpoway.com/used-inventory/index.htm?accountId=aaronofpowayfordfd&year=2024&make=Nissan",
+            "model": "https://www.aaronfordofpoway.com/used-inventory/index.htm?accountId=aaronofpowayfordfd&year=2024&make=Nissan&model=Armada",
+            "trim": "https://www.aaronfordofpoway.com/used-inventory/index.htm?accountId=aaronofpowayfordfd&year=2024&make=Nissan&model=Armada&trim=SV"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Kearny Mesa Ford",
+        "competitor_id": "kearny_mesa_ford",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/6000821/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "api_sort": [
+          {
+            "field": "make",
+            "order": "asc",
+            "scores": {
+              "ford": 1
+            },
+            "default": 2
+          },
+          {
+            "field": "low_price",
+            "order": "asc"
+          }
+        ],
+        "new_price_labels": ["Total Price"],
+        "new_inventory_url": "https://www.kearnymesaford.com/new-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.kearnymesaford.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "make": "https://www.kearnymesaford.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "model": "https://www.kearnymesaford.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=Expedition&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "trim": "https://www.kearnymesaford.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=Expedition&_dFR%5Btrim%5D%5B0%5D=Active&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "El Cajon Ford",
+        "competitor_id": "el_cajon_ford",
+        "dealer_type": "competitor",
+        "platform": "teamvelocity",
+        "teamvelocity_account_id": "38170",
+        "teamvelocity_make": "Ford",
+        "new_inventory_url": "https://www.elcajonford.com/inventory/new",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.elcajonford.com/inventory/new/ford?paymenttype=cash&years=2026&intransit=true&instock=true&inproduction=true",
+            "model": "https://www.elcajonford.com/inventory/new/ford/explorer?paymenttype=cash&years=2026&intransit=true&instock=true&inproduction=true",
+            "trim": "https://www.elcajonford.com/inventory/new/ford/explorer?trim=st-line&paymenttype=cash&years=2026&sorttype=priceltoh&intransit=true&instock=true&inproduction=true"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Sedano Ford",
+        "competitor_id": "sedano_ford",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/6061738/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "api_sort": [
+          {
+            "field": "make",
+            "order": "asc",
+            "scores": {
+              "ford": 1
+            },
+            "default": 2
+          },
+          {
+            "field": "low_price",
+            "order": "asc"
+          }
+        ],
+        "new_price_labels": ["Employee Price", "Sedano Ford Price"],
+        "new_inventory_url": "https://www.sedanoford.com/new-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.sedanoford.com/new-vehicles/?_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "make": "https://www.sedanoford.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "model": "https://www.sedanoford.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=Bronco%2520Sport&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025",
+            "trim": "https://www.sedanoford.com/new-vehicles/?_dFR%5Bcustom_trim%5D%5B0%5D=Outer%2520Banks%25C2%25AE&_dFR%5Bmake%5D%5B0%5D=Ford&_dFR%5Bmodel%5D%5B0%5D=Bronco%2520Sport&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2025"
+          }
+        },
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "aaron_kia",
+    "store_name": "Aaron Kia",
+    "default_make": "Kia",
+    "group_id": "aaron_automotive_group",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Aaron Kia",
+        "competitor_id": "aaron_kia",
+        "dealer_type": "client",
+        "platform": "dealercom",
+        "new_price_labels": ["Net Price", "Total Price", "Aaron Sale Price"],
+        "new_inventory_url": "https://www.aaronkiaofcorona.com/new-inventory/index.htm",
+        "used_inventory_url": "https://www.aaronkiaofcorona.com/used-inventory/index.htm?accountId=aaroncoronakia",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.aaronkiaofcorona.com/new-inventory/index.htm?year=2026-2026",
+            "model": "https://www.aaronkiaofcorona.com/new-inventory/index.htm?year=2026-2026&model=Carnival%20Hybrid",
+            "trim": "https://www.aaronkiaofcorona.com/new-inventory/index.htm?year=2026-2026&model=Carnival%20Hybrid&trim=SX%20Prestige"
+          },
+          "used": {
+            "year": "https://www.aaronkiaofcorona.com/used-inventory/index.htm?accountId=aaroncoronakia&year=2023-2023",
+            "make": "https://www.aaronkiaofcorona.com/used-inventory/index.htm?accountId=aaroncoronakia&year=2023-2023&make=Toyota",
+            "model": "https://www.aaronkiaofcorona.com/used-inventory/index.htm?accountId=aaroncoronakia&year=2023-2023&make=Toyota&model=Highlander",
+            "trim": "https://www.aaronkiaofcorona.com/used-inventory/index.htm?accountId=aaroncoronakia&year=2023-2023&make=Toyota&model=Highlander&trim=XLE"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Pomona Kia",
+        "competitor_id": "pomona_kia",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/202616/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_sort_field": "stock",
+        "api_sort_order": "asc",
+        "api_type_slug": ["New"],
+        "new_price_labels": ["Pomona Kia Internet Price", "MSRP"],
+        "new_inventory_url": "https://www.pomonakia.com/new-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.pomonakia.com/new-vehicles/?_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "make": "https://www.pomonakia.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "model": "https://www.pomonakia.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Bmodel%5D%5B0%5D=Carnival%2520MPV%2520Hybrid&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "trim": "https://www.pomonakia.com/new-vehicles/?_dFR%5Bcustom_trim%5D%5B0%5D=SX%2520Prestige&_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Bmodel%5D%5B0%5D=Carnival%2520MPV%2520Hybrid&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Riverside Kia",
+        "competitor_id": "riverside_kia",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/27419/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "new_price_labels": ["Riverside Kia Internet Price", "MSRP"],
+        "new_inventory_url": "https://www.riversidekia.com/new-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.riversidekia.com/new-vehicles/?_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "make": "https://www.riversidekia.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "model": "https://www.riversidekia.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Bmodel%5D%5B0%5D=K4%2520Hatchback&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "trim": "https://www.riversidekia.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Bmodel%5D%5B0%5D=K4%2520Hatchback&_dFR%5Btrim%5D%5B0%5D=GT-Line%2520Turbo&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026"
+          }
+        },
+        "active": false
+      },
+      {
+        "dealer_name": "Citrus Motors Kia",
+        "competitor_id": "citrus_motors_kia",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/5364017/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "new_price_labels": ["Citrus Internet Price"],
+        "new_inventory_url": "https://www.citruskia.net/new-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.citruskia.net/new-vehicles/?_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "make": "https://www.citruskia.net/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "model": "https://www.citruskia.net/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Bmodel%5D%5B0%5D=EV6&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "trim": "https://www.citruskia.net/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Kia&_dFR%5Bmodel%5D%5B0%5D=EV6&_dFR%5Btrim%5D%5B0%5D=Light&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026"
+          }
+        },
+        "active": false
+      }
+    ]
+  },
+  
+  {
+    "scraper_store_id": "geaux_chevrolet",
+    "store_name": "Geaux Chevrolet",
+    "default_make": "Chevrolet",
+    "group_id": "geaux_automotive",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Geaux Chevrolet",
+        "competitor_id": "geaux_chevrolet",
+        "dealer_type": "client",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/5398021/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "new_price_labels": ["Geaux Sales Price"],
+        "used_price_labels": ["Geaux Price"],
+        "new_inventory_url": "https://www.geauxchevrolet.com/new-vehicles/",
+        "used_inventory_url": "https://www.geauxchevrolet.com/used-vehicles/",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.geauxchevrolet.com/new-vehicles/?_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "make": "https://www.geauxchevrolet.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Chevrolet&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "model": "https://www.geauxchevrolet.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Chevrolet&_dFR%5Bmodel%5D%5B0%5D=Silverado%25201500&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026",
+            "trim": "https://www.geauxchevrolet.com/new-vehicles/?_dFR%5Bmake%5D%5B0%5D=Chevrolet&_dFR%5Bmodel%5D%5B0%5D=Silverado%25201500&_dFR%5Btrim%5D%5B0%5D=Custom%2520Trail%2520Boss&_dFR%5Btype%5D%5B0%5D=New&_dFR%5Btype%5D%5B1%5D=CTP&_dFR%5Btype%5D%5B2%5D=Demo&_dFR%5Btype_slug%5D%5B0%5D=New&_dFR%5Byear%5D%5B0%5D=2026"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Best Chevrolet",
+        "competitor_id": "best_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealeron",
+        "api_url": "https://www.bestchevrolet.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/28077/2939773?host=www.bestchevrolet.com&baseFilter=dHlwZT0nbic=&displayCardsShown=NaN",
+        "new_price_labels": ["Sale Price"],
+        "new_inventory_url": "https://www.bestchevrolet.com/searchnew.aspx",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.bestchevrolet.com/searchnew.aspx?yearrange=2026-2026",
+            "make": "https://www.bestchevrolet.com/searchnew.aspx?yearrange=2026-2026&Make=Chevrolet",
+            "model": "https://www.bestchevrolet.com/searchnew.aspx?yearrange=2026-2026&Make=Chevrolet&ModelAndTrim=Colorado",
+            "trim": "https://www.bestchevrolet.com/searchnew.aspx?yearrange=2026-2026&Make=Chevrolet&ModelAndTrim=Colorado:Trail%20Boss"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Supreme Chevrolet",
+        "competitor_id": "supreme_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealeron",
+        "api_url": "https://www.supremechevy.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/16481/1105181?host=www.supremechevy.com&baseFilter=dHlwZT0nbic=&displayCardsShown=NaN",
+        "new_price_labels": ["Price"],
+        "new_inventory_url": "https://www.supremechevy.com/searchnew.aspx",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.supremechevy.com/searchnew.aspx?yearrange=2025-2025",
+            "make": "https://www.supremechevy.com/searchnew.aspx?yearrange=2025-2025&Make=Chevrolet",
+            "model": "https://www.supremechevy.com/searchnew.aspx?yearrange=2025-2025&Make=Chevrolet&ModelAndTrim=Equinox%20EV",
+            "trim": "https://www.supremechevy.com/searchnew.aspx?yearrange=2025-2025&Make=Chevrolet&ModelAndTrim=Equinox%20EV:RS"
+          }
+        },
+        "active": true
+      },
+      {
+        "dealer_name": "Matt Bowers Chevrolet",
+        "competitor_id": "matt_bowers_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_price_labels": ["Matt Bowers Price"],
+        "new_inventory_url": "https://www.mbchevymetairie.com/new-inventory/index.htm",
+        "facet_labels": {
+          "year": "Year",
+          "make": "Make",
+          "model": "Model",
+          "trim": "Trim"
+        },
+        "filter_examples": {
+          "new": {
+            "year": "https://www.mbchevymetairie.com/new-inventory/index.htm?year=2026-2026",
+            "model": "https://www.mbchevymetairie.com/new-inventory/index.htm?year=2026-2026&model=Colorado",
+            "trim": "https://www.mbchevymetairie.com/new-inventory/index.htm?year=2026-2026&model=Colorado&trim=WT"
+          }
+        },
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "norm_reeves_ford",
+    "store_name": "Norm Reeves Ford",
+    "group_id": "grp_norm_reeves",
+    "scrape_frequency": "weekly",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Norm Reeves Ford",
+        "competitor_id": "norm_reeves_ford",
+        "dealer_type": "client",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/1182/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_type_slug": ["New"],
+        "new_price_labels": ["MSRP", "Net Price", "Price"],
+        "new_inventory_url": "https://www.normreevesford.com/new-vehicles/",
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "covina_kia",
+    "store_name": "Covina KIA",
+    "group_id": "dealergroup_1792686749853_bpvi9",
+    "scrape_frequency": "daily",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Covina KIA",
+        "competitor_id": "covina_kia",
+        "dealer_type": "client",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/6067145/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_per_page": 100,
+        "api_sort_field": "stock",
+        "api_sort_order": "asc",
+        "api_type_slug": ["New"],
+        "new_price_labels": ["MSRP", "Sale Price"],
+        "new_inventory_url": "https://www.covinakia.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "Pomona KIA",
+        "competitor_id": "pomona_kia",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "new_inventory_url": "https://www.pomonakia.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "KIA Cerritos",
+        "competitor_id": "kia_cerritos",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "new_inventory_url": "https://www.kiacerritos.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "KIA Of DTLA",
+        "competitor_id": "kia_of_dtla",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "new_inventory_url": "https://www.kiaofdtla.com/inventory/new",
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "waldorf_ford",
+    "store_name": "Waldorf Ford",
+    "group_id": "dealergroup_1792687110164_8eitu",
+    "scrape_frequency": "daily",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Waldorf Ford",
+        "competitor_id": "waldorf_ford",
+        "dealer_type": "client",
+        "platform": "dealeron",
+        "api_url": "https://www.waldorfford.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/13703/904369?host=www.waldorfford.com&baseFilter=dHlwZT0nbicgQU5EIChub3QodmVoaWNsZXN0YWdldGV4dCA9ICdkZWFsZXIgb3JkZXJlZCcpKQ==",
+        "new_inventory_url": "https://www.waldorfford.com/searchnew.aspx",
+        "active": true
+      },
+      {
+        "dealer_name": "Banister Ford of Marlow Heights",
+        "competitor_id": "banister_ford_of_marlow_heights",
+        "dealer_type": "competitor",
+        "platform": "typesense",
+        "api_url": "https://hjnrb3s21408ezpfp.a1.typesense.net/collections/vehicles-FOR27004/documents/search",
+        "api_key": "eQUa8iq30l8Tu908Drz9WKqar6tCJGd4",
+        "collection_name": "vehicles-FOR27004",
+        "new_inventory_url": "https://www.banisterfordofmarlowheights.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "Prince Frederick Ford",
+        "competitor_id": "prince_frederick_ford",
+        "dealer_type": "competitor",
+        "platform": "dealeron",
+        "api_url": "https://www.princefrederickford.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/13706/919713?host=www.princefrederickford.com&baseFilter=dHlwZSA9ICduJyBhbmQgKG1ha2UgPSAnZm9yZCcp",
+        "new_inventory_url": "https://www.princefrederickford.com/searchnew.aspx",
+        "active": true
+      },
+      {
+        "dealer_name": "Upper Marlboro Ford",
+        "competitor_id": "upper_marlboro_ford",
+        "dealer_type": "competitor",
+        "platform": "dealeron",
+        "api_url": "https://www.uppermarlboroford.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/13702/921149?host=www.uppermarlboroford.com&baseFilter=dHlwZT0nbic=",
+        "new_inventory_url": "https://www.uppermarlboroford.com/searchnew.aspx",
+        "active": true
+      },
+      {
+        "dealer_name": "World Of Ford Alexandria",
+        "competitor_id": "world_of_ford_alexandria",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_inventory_url": "https://www.worldoffordalexandria.com/new-inventory/index.htm",
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "harbor_chevy",
+    "store_name": "Harbor Chevy",
+    "group_id": "dealergroup_1792686286527_ibqpq",
+    "scrape_frequency": "daily",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Harbor Chevy",
+        "competitor_id": "harbor_chevy",
+        "dealer_type": "client",
+        "platform": "dealerinspire",
+        "new_inventory_url": "https://www.harborchevrolet.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "George Chevrolet",
+        "competitor_id": "george_chevorlet",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_inventory_url": "https://www.georgechevy.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "Penske Chevrolet",
+        "competitor_id": "penske_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealeron",
+        "api_url": "https://www.penskechevroletofcerritos.com/api/vhcliaa/vehicle-pages/cosmos/srp/vehicles/28208/2950454?host=www.penskechevroletofcerritos.com&baseFilter=dHlwZT0nbic=",
+        "new_inventory_url": "https://www.penskechevroletofcerritos.com/searchnew.aspx",
+        "active": true
+      },
+      {
+        "dealer_name": "Premier Chevrolet",
+        "competitor_id": "premier_chevrolet",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "new_inventory_url": "https://www.premierchevybp.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "Chevy Of Carson",
+        "competitor_id": "chevy_of_carson",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_inventory_url": "https://www.chevyofcarson.com/new-inventory/index.htm",
+        "active": true
+      }
+    ]
+  },
+  {
+    "scraper_store_id": "tuttle_click_hyundai",
+    "store_name": "Tuttle Click Hyundai",
+    "group_id": "dealergroup_1792653430946_zepyn",
+    "scrape_frequency": "daily",
+    "active": true,
+    "dealers": [
+      {
+        "dealer_name": "Tuttle Click Hyundai",
+        "competitor_id": "tuttle_click_hyundai",
+        "dealer_type": "client",
+        "platform": "dealercom",
+        "new_inventory_url": "https://www.tuttleclickhyundai.com/new-inventory/index.htm",
+        "active": true
+      },
+      {
+        "dealer_name": "Laguna Niguel Hyundai",
+        "competitor_id": "laguna_niguel_hyundai",
+        "dealer_type": "competitor",
+        "platform": "dealerinspire",
+        "new_inventory_url": "https://www.lagunaniguelhyundai.com/new-vehicles/",
+        "active": true
+      },
+      {
+        "dealer_name": "Huntington Beach Hyundai",
+        "competitor_id": "hunting_ton_beach_hyundai",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_inventory_url": "https://www.huntingtonbeachhyundai.com/new-inventory/index.htm",
+        "active": true
+      },
+      {
+        "dealer_name": "Garden Grove Hyundai",
+        "competitor_id": "garden_grove_hyundai",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_inventory_url": "https://www.gardengrovehyundai.com/new-inventory/index.htm",
+        "active": true
+      },
+      {
+        "dealer_name": "Hyundai Of Anaheim",
+        "competitor_id": "hyundai_of_anaheim",
+        "dealer_type": "competitor",
+        "platform": "dealercom",
+        "new_inventory_url": "https://www.hyundaiofanaheim.com/new-inventory/index.htm",
+        "active": true
+      }
+    ]
+  }
+]

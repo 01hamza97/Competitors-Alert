@@ -1,0 +1,52 @@
+name: Patch Client Used Inventory Debug
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Add client used inventory debug logs
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path('run.js')
+          source = path.read_text()
+
+          old = "  await gotoPage(page, baseUrl);\n\n  const websiteTotal = await getWebsiteTotal(page);"
+          new = "  await gotoPage(page, baseUrl);\n\n  if (inventoryType === \"used\" && dealer.dealer_type === \"client\") {\n    const usedDebugText = await page.evaluate(() => document.body.innerText || \"\");\n    console.log(`USED DEBUG ${dealer.dealer_name}: page url ${page.url()}`);\n    console.log(`USED DEBUG ${dealer.dealer_name}: text length ${usedDebugText.length}`);\n    console.log(`USED DEBUG ${dealer.dealer_name}: has Year ${/Year/i.test(usedDebugText)}`);\n    console.log(`USED DEBUG ${dealer.dealer_name}: has Make ${/Make/i.test(usedDebugText)}`);\n    console.log(`USED DEBUG ${dealer.dealer_name}: has Model ${/Model/i.test(usedDebugText)}`);\n    console.log(`USED DEBUG ${dealer.dealer_name}: has Trim ${/Trim/i.test(usedDebugText)}`);\n  }\n\n  const websiteTotal = await getWebsiteTotal(page);"
+
+          if new in source:
+              print('Client used debug logs already exist')
+          elif old in source:
+              source = source.replace(old, new, 1)
+              print('Added client used debug logs')
+          else:
+              raise SystemExit('Could not find scrapeFilterCounts goto block')
+
+          path.write_text(source)
+          PY
+
+      - name: Check syntax
+        run: node --check run.js
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add run.js
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Add client used inventory debug logs"
+            git push
+          fi
