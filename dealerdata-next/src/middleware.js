@@ -15,9 +15,9 @@ export function middleware(request) {
   const sessionToken = request.cookies.get('dealerdata_session')?.value;
   const hasApiAuthHeader = Boolean(request.headers.get('authorization') || request.headers.get('x-api-key'));
 
-  // If user is already authenticated and visits login or signup, redirect to dashboard
+  // If user is already authenticated and visits login or signup, redirect to competitive analysis
   if (sessionToken && (pathname === '/login' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/competitor-analysis', request.url));
   }
 
   // If user is not authenticated and attempts to access protected routes

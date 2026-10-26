@@ -67,10 +67,12 @@ export async function POST(request) {
     const token = await createSession(newUser.id);
     const { password: _, ...safeUser } = newUser;
 
+    const isHttps = request.nextUrl.protocol === 'https:' || request.headers.get('x-forwarded-proto') === 'https';
+
     const response = NextResponse.json({ user: safeUser, group: newGroup });
     response.cookies.set('dealerdata_session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isHttps,
       sameSite: 'lax',
       path: '/',
       maxAge: 30 * 24 * 60 * 60,

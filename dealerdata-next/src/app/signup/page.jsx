@@ -40,10 +40,9 @@ export default function SignupPage() {
         password,
         company_name: companyName,
       });
-      router.push('/');
+      window.location.href = '/competitor-analysis';
     } catch (err) {
       setErrorMessage(err.message || 'Failed to create account');
-    } finally {
       setIsLoading(false);
     }
   };

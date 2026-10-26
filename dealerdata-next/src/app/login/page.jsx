@@ -31,10 +31,9 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await login({ email, password });
-      router.push('/');
+      window.location.href = '/competitor-analysis';
     } catch (err) {
       setErrorMessage(err.message || 'Invalid email or password');
-    } finally {
       setIsLoading(false);
     }
   };
