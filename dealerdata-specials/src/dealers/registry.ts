@@ -1,11 +1,12 @@
 import { DealerSpecialsScraper } from './types';
 import { DefaultSpecialsScraper } from './default';
+import { TuttleClickHyundaiScraper } from './tuttle_click_hyundai';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
 
   static {
-    // Registered dealer scrapers will be added here one-by-one
+    DealerRegistry.register(new TuttleClickHyundaiScraper());
   }
 
   static register(scraper: DealerSpecialsScraper): void {
