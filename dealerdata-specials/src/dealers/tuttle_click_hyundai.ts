@@ -19,12 +19,21 @@ export class TuttleClickHyundaiScraper implements DealerSpecialsScraper {
     htmlSpecials: CompetitorVehicleSpecial[];
     visualSpecials: StagedVisualSpecial[];
   }> {
-    const { $, targetUrl, dealerId, dealerName, domain, logger } = ctx;
+    const { targetUrl, dealerId, dealerName, domain, logger } = ctx;
     const htmlSpecials: CompetitorVehicleSpecial[] = [];
     const visualSpecials: StagedVisualSpecial[] = [];
     const storage = new StorageManager();
 
     logger.log(`Executing exact specials extractor for Tuttle Click Hyundai...`);
+
+    // Wait for Dealer.com specials widget to mount in the DOM
+    try {
+      await ctx.page.waitForSelector('.promo-type-vehicle, .promo-type-incentive, [id^="promo-"]', { timeout: 8000 });
+    } catch {}
+
+    const cheerio = await import('cheerio');
+    const hydratedHtml = await ctx.page.content();
+    const $ = cheerio.load(hydratedHtml);
 
     // =========================================================================
     // 1. IMAGE-BASED SPECIALS (Custom Asset Flyers for N8N / Vision AI)
