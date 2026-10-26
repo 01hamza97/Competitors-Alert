@@ -198,6 +198,22 @@ class PlaywrightCrawler {
                         }
                     }
                     alreadyLoadedInBrowser = false;
+                    // Immediate check for Access Denied / Akamai / WAF block on proxy
+                    const immediateTitle = await page.title().catch(() => '');
+                    const immediateHtml = await page.content().catch(() => '');
+                    const immediateBlocked = immediateTitle.includes('Access Denied') ||
+                        immediateHtml.includes('errors.edgesuite.net') ||
+                        immediateHtml.includes('<h1>Access Denied</h1>') ||
+                        immediateHtml.includes('Reference #18.');
+                    if (immediateBlocked) {
+                        console.warn(`[Playwright] Access Denied / WAF block detected immediately on page ${pageCount} (${normalizedUrl}).`);
+                        if (this.isUsingProxy && pageCount === 1) {
+                            console.log(`[Playwright] Proxy IP was blocked by dealer firewall (Akamai/Access Denied). Automatically falling back to DIRECT connection...`);
+                            await this.close();
+                            return await this.crawl({ ...options, proxyUrl: 'direct' });
+                        }
+                        break;
+                    }
                     // Wait for rate-limit cooldown or Cloudflare Turnstile / anti-bot challenge to resolve
                     let isChallengePage = false;
                     const challengeStart = Date.now();
@@ -219,7 +235,7 @@ class PlaywrightCrawler {
                             continue;
                         }
                         if (bodyText.includes('Too many requests') || (bodyText.length < 50 && pageCount > 1)) {
-                            console.log(`[Playwright] Rate limit / empty response on ${normalizedUrl}. Cooling down 15s...`);
+                            console.log(`[Playwright] Rate limit / empty response on ${normalizedUrl}. Details: hasTooManyRequests=${bodyText.includes('Too many requests')}, length=${bodyText.length}, pageCount=${pageCount}. Cooling down 15s...`);
                             await page.waitForTimeout(15000);
                             try {
                                 await page.reload({ waitUntil: 'domcontentloaded', timeout: 35000 });

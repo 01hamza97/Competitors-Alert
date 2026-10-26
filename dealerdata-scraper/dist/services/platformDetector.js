@@ -48,15 +48,40 @@ class PlatformDetector {
     static async detectPlatform(targetUrl, proxyUrl) {
         const origin = new URL(targetUrl).origin;
         console.log(`[PlatformDetector] Analyzing target platform for: ${origin}`);
+        // Fast check: Dealer.com canonical inventory path structure
+        if (targetUrl.includes('/new-inventory/index.htm') ||
+            targetUrl.includes('/used-inventory/index.htm') ||
+            targetUrl.includes('/inventory/index.htm')) {
+            console.log(`[PlatformDetector] Identified Dealer.com via canonical URL pattern.`);
+            return 'dealercom';
+        }
         try {
-            const res = await axios_1.default.get(targetUrl, {
-                headers: {
-                    'User-Agent': DEFAULT_USER_AGENT,
-                    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                },
-                timeout: 12000,
-                ...(0, proxyHelper_1.getAxiosProxyConfig)(proxyUrl),
-            });
+            let res;
+            try {
+                res = await axios_1.default.get(targetUrl, {
+                    headers: {
+                        'User-Agent': DEFAULT_USER_AGENT,
+                        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    },
+                    timeout: 12000,
+                    ...(0, proxyHelper_1.getAxiosProxyConfig)(proxyUrl),
+                });
+            }
+            catch (proxyErr) {
+                if (proxyUrl && proxyUrl !== 'direct') {
+                    console.warn(`[PlatformDetector] Request with proxy failed (${proxyErr.message}). Retrying with direct connection...`);
+                    res = await axios_1.default.get(targetUrl, {
+                        headers: {
+                            'User-Agent': DEFAULT_USER_AGENT,
+                            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        },
+                        timeout: 10000,
+                    });
+                }
+                else {
+                    throw proxyErr;
+                }
+            }
             const html = res.data;
             const $ = cheerio.load(html);
             // Check 1: Dealer Inspire

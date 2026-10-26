@@ -108,15 +108,17 @@ async function scrapeDealership(options) {
         console.log(`\n⚡ [Funnel Step 1/4: Direct API & Native Feeds]`);
         console.log(`   Checking known JSON API feeds & provider endpoints for ${domain}...`);
         try {
-            detectedPlatform = await platformDetector_1.PlatformDetector.detectPlatform(domain, options.proxyUrl);
+            detectedPlatform = await platformDetector_1.PlatformDetector.detectPlatform(options.targetUrl || domain, options.proxyUrl);
             console.log(`   [Platform] Detected Provider: ${detectedPlatform.toUpperCase()}`);
-            const apiResult = await platformDetector_1.PlatformDetector.checkDirectApi(domain, dealerId, options.maxPages, options.proxyUrl);
-            if (apiResult.hasDirectApi && apiResult.listings.length > 0) {
-                console.log(`✨ [Funnel Step 1: Direct API] SUCCESS: Extracted ${apiResult.listings.length} listings from ${apiResult.endpoint}`);
-                listings.push(...apiResult.listings);
-                apiAccessUsed = true;
-                funnelStageUsed = 'direct_api';
-                pagesCrawled = 1;
+            if (detectedPlatform !== 'dealercom') {
+                const apiResult = await platformDetector_1.PlatformDetector.checkDirectApi(domain, dealerId, options.maxPages, options.proxyUrl);
+                if (apiResult.hasDirectApi && apiResult.listings.length > 0) {
+                    console.log(`✨ [Funnel Step 1: Direct API] SUCCESS: Extracted ${apiResult.listings.length} listings from ${apiResult.endpoint}`);
+                    listings.push(...apiResult.listings);
+                    apiAccessUsed = true;
+                    funnelStageUsed = 'direct_api';
+                    pagesCrawled = 1;
+                }
             }
         }
         catch (apiErr) {
@@ -212,7 +214,7 @@ async function scrapeDealership(options) {
         if (listings.length === 0) {
             console.log(`⚠️  [Funnel Step 3: Direct SRP] Static SRP crawl yielded 0 priced listings (blocked or dynamic JS required).`);
             // Fallback: If sitemap was not run in Step 2, run it now before launching Playwright
-            if (!sitemapUsed && options.useSitemapFirst !== false) {
+            if (!sitemapUsed && options.useSitemapFirst !== false && detectedPlatform !== 'dealercom') {
                 console.log(`\n🔍 [Funnel Step 3.5: Sitemap Discovery Fallback]`);
                 console.log(`   Direct SRP failed/blocked. Probing ${domain} for XML inventory sitemaps...`);
                 try {

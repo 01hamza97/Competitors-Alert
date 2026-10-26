@@ -12,15 +12,16 @@ async function main() {
     return args.includes(`--${name}`);
   };
 
-  const url = getArg('url') || process.env.TARGET_URL || 'https://www.mossbroscjdrriverside.com/new-inventory/index.htm';
+  const positionalUrl = args.find((a) => !a.startsWith('--') && (a.startsWith('http://') || a.startsWith('https://')));
+  const url = getArg('url') || positionalUrl || process.env.TARGET_URL || 'https://www.mossbroscjdrriverside.com/new-inventory/index.htm';
   const inventoryType = (getArg('type') as any) || 'New';
   const mode: ScrapeMode = (getArg('mode') as ScrapeMode) || 'auto';
   const rawPages = getArg('pages');
   const maxPages = (!rawPages || rawPages === '0' || rawPages === '-1' || rawPages === 'unlimited' || rawPages === 'all')
     ? 0
     : parseInt(rawPages, 10);
-  const dealerId = getArg('dealerId') || 'test_dealer_01';
-  const dealerName = getArg('dealerName') || undefined;
+  const dealerId = getArg('dealerId') || getArg('dealer-id') || getArg('dealer_id') || 'test_dealer_01';
+  const dealerName = getArg('dealerName') || getArg('dealer-name') || undefined;
   const saveToDb = !hasFlag('no-db');
   const tryDirectApi = !hasFlag('no-api');
   const useSitemapFirst = hasFlag('sitemap-first') ? true : (hasFlag('no-sitemap') ? false : undefined);

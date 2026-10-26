@@ -63,7 +63,9 @@ export class WebsiteCrawler {
       console.log(`[Crawler] Fetching page ${pageCount}: ${currentUrl}`);
 
       try {
-        const response = await this.client.get(currentUrl);
+        const response = await this.client.get(currentUrl, {
+          signal: AbortSignal.timeout(10000)
+        });
         const rawHtml = response.data;
 
         if (typeof rawHtml !== 'string') {
