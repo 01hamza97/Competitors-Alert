@@ -45,14 +45,16 @@ const proxyHelper_1 = require("./proxyHelper");
 class PlaywrightCrawler {
     browser = null;
     context = null;
+    isUsingProxy = false;
     async init(proxyUrl) {
         if (!this.browser) {
             const pwProxy = (0, proxyHelper_1.getPlaywrightProxy)(proxyUrl);
+            this.isUsingProxy = !!pwProxy;
             if (pwProxy) {
                 console.log(`[Playwright] Launching headless browser through proxy: ${pwProxy.server}...`);
             }
             else {
-                console.log('[Playwright] Launching headless browser with stealth config...');
+                console.log('[Playwright] Launching headless browser with stealth config (direct connection)...');
             }
             this.browser = await playwright_1.chromium.launch({
                 headless: true,
@@ -184,6 +186,11 @@ class PlaywrightCrawler {
                         catch (gotoErr) {
                             if (gotoErr.message && gotoErr.message.includes('Download is starting')) {
                                 console.warn(`[Playwright] Target URL started file download instead of HTML document. Continuing DOM check...`);
+                            }
+                            else if (this.isUsingProxy && pageCount === 1) {
+                                console.warn(`[Playwright] Proxy error on page 1 (${gotoErr.message}). Automatically falling back to DIRECT connection...`);
+                                await this.close();
+                                return await this.crawl({ ...options, proxyUrl: 'direct' });
                             }
                             else {
                                 throw gotoErr;
@@ -367,11 +374,17 @@ class PlaywrightCrawler {
                     const rawHtml = await page.content();
                     // Check for Access Denied / WAF blocking
                     const pageTitle = await page.title().catch(() => '');
-                    if (pageTitle.includes('Access Denied') ||
+                    const isAccessDenied = pageTitle.includes('Access Denied') ||
                         rawHtml.includes('errors.edgesuite.net') ||
                         rawHtml.includes('<h1>Access Denied</h1>') ||
-                        rawHtml.includes('Reference #18.')) {
-                        console.warn(`[Playwright] Access Denied / WAF block detected on page ${pageCount} (${normalizedUrl}). Halting pagination.`);
+                        rawHtml.includes('Reference #18.');
+                    if (isAccessDenied) {
+                        console.warn(`[Playwright] Access Denied / WAF block detected on page ${pageCount} (${normalizedUrl}).`);
+                        if (this.isUsingProxy && pageCount === 1) {
+                            console.log(`[Playwright] Proxy IP was blocked by dealer firewall (Akamai/Access Denied). Automatically falling back to DIRECT connection...`);
+                            await this.close();
+                            return await this.crawl({ ...options, proxyUrl: 'direct' });
+                        }
                         break;
                     }
                     // 1. Clean HTML and extract specials images

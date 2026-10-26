@@ -30,6 +30,9 @@ function loadEnvFilesOnce() {
  * Returns the effective proxy URL from explicit options or environment variables.
  */
 export function getProxyUrl(explicitUrl?: string): string | undefined {
+  if (explicitUrl === 'direct' || explicitUrl === 'none' || explicitUrl === 'false') {
+    return undefined;
+  }
   loadEnvFilesOnce();
   const url = explicitUrl || process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
   if (!url || typeof url !== 'string' || url.trim() === '') {
