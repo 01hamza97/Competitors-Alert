@@ -76,6 +76,179 @@ export async function updateRunLog(id, data) {
 }
 
 /**
+ * Resolves the root directory of the dedicated dealerdata-specials engine
+ */
+export function getSpecialsDir() {
+  const candidates = [
+    path.join(process.cwd(), '..', 'dealerdata-specials'),
+    path.join(process.cwd(), 'dealerdata-specials'),
+    '/var/www/Competitors-Alert/dealerdata-specials',
+    '/var/www/dealerdata/dealerdata-specials',
+  ];
+  for (const d of candidates) {
+    if (fs.existsSync(d)) return d;
+  }
+  return path.join(process.cwd(), '..', 'dealerdata-specials');
+}
+
+/**
+ * Launches an asynchronous dedicated specials scraper for a dealership.
+ */
+export async function launchSpecialsJob({
+  runId,
+  storeId,
+  dealerName,
+  targetUrl,
+  specialsUrl,
+  forceRefresh = false,
+  proxyUrl,
+}) {
+  const cleanTargetStoreId = (storeId || 'manual_run').replace(/^store_/, '');
+  const generatedRunId = runId || `run_${Date.now()}_${cleanTargetStoreId}_specials`;
+  const effectiveUrl = specialsUrl || targetUrl;
+  const domain = normalizeDomain(effectiveUrl || targetUrl);
+
+  // 1. Create run log entry in MySQL
+  const runLog = await createRunLog({
+    runId: generatedRunId,
+    storeId: cleanTargetStoreId,
+    dealerName: dealerName || 'Dealership',
+    targetUrl: effectiveUrl,
+    domain,
+    mode: 'specials',
+    status: 'running',
+    startedAt: new Date(),
+    storageType: process.env.R2_BUCKET_NAME ? 'r2' : 'local',
+    logOutput: `[${new Date().toISOString()}] Initiated dedicated specials scrape ${generatedRunId} for ${dealerName} (${effectiveUrl})...\nMode: specials\n`,
+  });
+
+  const specialsDir = getSpecialsDir();
+  const distCli = path.join(specialsDir, 'dist', 'cli.js');
+  const useCompiled = fs.existsSync(distCli);
+
+  const bin = useCompiled ? 'node' : 'npx';
+  const binArgs = useCompiled ? ['dist/cli.js'] : ['ts-node', 'src/cli.ts'];
+
+  const args = [
+    ...binArgs,
+    `--dealer=${cleanTargetStoreId}`,
+    `--url=${effectiveUrl}`,
+    `--dealerName=${dealerName || 'Dealership'}`,
+  ];
+
+  let resolvedProxy = proxyUrl || process.env.SCRAPER_PROXY_URL;
+  if (!resolvedProxy) {
+    const candidates = [
+      path.join(specialsDir, '.env'),
+      path.join(process.cwd(), '.env.local'),
+      path.join(process.cwd(), '.env'),
+      '/var/www/Competitors-Alert/dealerdata-specials/.env',
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        try {
+          const content = fs.readFileSync(p, 'utf-8');
+          const m = content.match(/^SCRAPER_PROXY_URL=["']?([^"'\r\n]+)["']?/m);
+          if (m && m[1]) {
+            resolvedProxy = m[1].trim();
+            break;
+          }
+        } catch {}
+      }
+    }
+  }
+
+  if (resolvedProxy && resolvedProxy !== 'direct' && resolvedProxy !== 'none') {
+    args.push(`--proxy=${resolvedProxy}`);
+  }
+
+  console.log(`[Specials Runner] Launching dedicated specials scraper in: ${specialsDir}`);
+  console.log(`[Specials Runner] Command: ${bin} ${args.join(' ')}`);
+
+  let accumulatedLogs = `[${new Date().toISOString()}] Spawning dedicated specials scraper...\n`;
+
+  const child = spawn(bin, args, {
+    cwd: specialsDir,
+    env: {
+      ...process.env,
+      DATABASE_URL: process.env.DATABASE_URL || 'mysql://root:1254879863@localhost:3306/dealerdata-2',
+      ...(resolvedProxy ? { SCRAPER_PROXY_URL: resolvedProxy } : {}),
+    },
+    shell: false,
+  });
+
+  let lastLogFlush = Date.now();
+  const flushLiveLogs = () => {
+    if (Date.now() - lastLogFlush > 2000) {
+      lastLogFlush = Date.now();
+      prisma.scraperRunLog
+        .update({
+          where: { id: runLog.id },
+          data: { logOutput: accumulatedLogs },
+        })
+        .catch(() => {});
+    }
+  };
+
+  child.stdout.on('data', (data) => {
+    const text = data.toString();
+    accumulatedLogs += text;
+    flushLiveLogs();
+  });
+
+  child.stderr.on('data', (data) => {
+    const text = data.toString();
+    accumulatedLogs += `[ERROR] ${text}`;
+    flushLiveLogs();
+  });
+
+  child.on('close', async (code) => {
+    console.log(`[Specials Runner] Specials scrape ${generatedRunId} exited with code: ${code}`);
+
+    const htmlSpecialsMatch = accumulatedLogs.match(/Structured HTML Specials:\s*(\d+)/i);
+    const visualSpecialsMatch = accumulatedLogs.match(/Visual Specials \(Flyers\):\s*(\d+)/i);
+    const totalMatch = accumulatedLogs.match(/Total Extracted:\s*(\d+)/i);
+    const manifestMatch = accumulatedLogs.match(/N8N Vision AI Manifest:\s*(.+)/i);
+
+    const htmlCount = htmlSpecialsMatch ? parseInt(htmlSpecialsMatch[1], 10) : 0;
+    const visualCount = visualSpecialsMatch ? parseInt(visualSpecialsMatch[1], 10) : 0;
+    const totalCount = totalMatch ? parseInt(totalMatch[1], 10) : (htmlCount + visualCount);
+    const manifestPath = manifestMatch ? manifestMatch[1].trim() : null;
+
+    const finalStatus = code === 0 ? 'complete' : 'failed';
+
+    try {
+      await updateRunLog(runLog.id, {
+        status: finalStatus,
+        completedAt: new Date(),
+        totalListingsFound: totalCount,
+        newListingsCount: htmlCount,
+        usedListingsCount: visualCount,
+        localManifestPath: manifestPath,
+        logOutput: accumulatedLogs,
+        errorMessage: code !== 0 ? `Specials process exited with error code ${code}` : null,
+      });
+    } catch (err) {
+      console.error('[Specials Runner] Failed to update run log on exit:', err.message);
+    }
+  });
+
+  return {
+    runId: generatedRunId,
+    logId: runLog.id,
+    status: 'running',
+    waitForCompletion: () =>
+      new Promise((resolve) => {
+        if (child.exitCode !== null) {
+          resolve(child.exitCode);
+        } else {
+          child.on('close', resolve);
+        }
+      }),
+  };
+}
+
+/**
  * Launches an asynchronous scraper background process for a dealership.
  * If fresh global data exists for this domain within the TTL (strictly capped at 6h),
  * it reuses the existing global data and skips live Playwright/browser execution!
@@ -95,6 +268,18 @@ export async function launchScraperJob({
 }) {
   const generatedRunId = runId || `run_${Date.now()}_${storeId || 'manual'}`;
   const domain = normalizeDomain(targetUrl);
+
+  // If user requested specials only, directly delegate to dedicated specials scraper
+  if (specialsOnly) {
+    return launchSpecialsJob({
+      runId: generatedRunId,
+      storeId,
+      dealerName,
+      targetUrl,
+      specialsUrl,
+      forceRefresh,
+    });
+  }
 
   // ── Global Cache / Freshness Check (Strictly max 6 hours TTL) ───────────────
   const envTtlRaw = process.env.SCRAPER_CACHE_TTL_HOURS;
@@ -367,6 +552,25 @@ export async function launchScraperJob({
       });
     } catch (err) {
       console.error('[Scraper Runner] Failed to update run log on process exit:', err.message);
+    }
+
+    // Auto-trigger dedicated specials scraper after successful inventory crawl if requested or specialsUrl is present
+    if (code === 0 && (crawlSpecials || specialsUrl)) {
+      try {
+        console.log(`[Scraper Runner] Inventory crawl complete for ${dealerName}. Automatically triggering dedicated specials crawl...`);
+        const specialsRunId = `${generatedRunId}_specials`;
+        launchSpecialsJob({
+          runId: specialsRunId,
+          storeId,
+          dealerName,
+          targetUrl,
+          specialsUrl,
+          forceRefresh: true,
+          proxyUrl,
+        }).catch((err) => console.error(`[Scraper Runner] Auto specials crawl error for ${dealerName}:`, err.message));
+      } catch (specialsErr) {
+        console.error(`[Scraper Runner] Auto specials trigger error for ${dealerName}:`, specialsErr.message);
+      }
     }
   });
 

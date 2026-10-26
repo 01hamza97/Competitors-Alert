@@ -212,9 +212,14 @@ export async function POST(request) {
       }
     }
 
+    const specialsOnly = Boolean(body.specialsOnly);
+    if (specialsOnly && resolvedSpecialsUrl) {
+      scrapeUrl = resolvedSpecialsUrl;
+    }
+
     if (!scrapeUrl) {
       return NextResponse.json(
-        { success: false, error: 'A valid dealership inventory URL is required.' },
+        { success: false, error: 'A valid dealership inventory or specials URL is required.' },
         { status: 400 }
       );
     }
@@ -223,7 +228,6 @@ export async function POST(request) {
 
     const forceRefresh = Boolean(body.forceRefresh);
     const inventoryTtlHours = body.inventoryTtlHours !== undefined ? Number(body.inventoryTtlHours) : undefined;
-    const specialsOnly = Boolean(body.specialsOnly);
     const includeCompetitors = body.includeCompetitors !== undefined ? Boolean(body.includeCompetitors) : !specialsOnly;
 
     const storeJob = await launchScraperJob({

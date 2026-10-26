@@ -1781,7 +1781,7 @@ export async function handleTriggerScraper({
       });
 
       if (comp) {
-        const targetUrl = comp.newInventoryUrl || comp.specialsUrl;
+        const targetUrl = isSpecialsOnly ? (comp.specialsUrl || comp.newInventoryUrl) : (comp.newInventoryUrl || comp.specialsUrl);
         if (!targetUrl) {
           return { ok: false, error: `No inventory or specials URL configured for competitor ${comp.competitorName}` };
         }
@@ -1814,7 +1814,7 @@ export async function handleTriggerScraper({
     });
 
     if (store) {
-      const targetUrl = store.newInventoryUrl || store.specialsUrl;
+      const targetUrl = isSpecialsOnly ? (store.specialsUrl || store.newInventoryUrl) : (store.newInventoryUrl || store.specialsUrl);
       if (!targetUrl) {
         return { ok: false, error: `No inventory or specials URL configured for ${store.name}` };
       }
@@ -1929,7 +1929,7 @@ export async function handleTriggerScraper({
     });
 
     if (compFallback) {
-      const targetUrl = compFallback.newInventoryUrl || compFallback.specialsUrl;
+      const targetUrl = isSpecialsOnly ? (compFallback.specialsUrl || compFallback.newInventoryUrl) : (compFallback.newInventoryUrl || compFallback.specialsUrl);
       if (!targetUrl) {
         return { ok: false, error: `No inventory or specials URL configured for competitor ${compFallback.competitorName}` };
       }
