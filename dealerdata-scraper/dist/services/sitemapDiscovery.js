@@ -40,6 +40,7 @@ exports.SitemapDiscoverer = exports.SitemapDiscovery = void 0;
 const axios_1 = __importDefault(require("axios"));
 const fast_xml_parser_1 = require("fast-xml-parser");
 const zlib = __importStar(require("zlib"));
+const proxyHelper_1 = require("./proxyHelper");
 const COMMON_SITEMAP_PATHS = [
     '/sitemap.xml',
     '/sitemap_index.xml',
@@ -92,11 +93,11 @@ class SitemapDiscovery {
     /**
      * Discover and collect candidate inventory sitemaps from robots.txt and standard endpoints
      */
-    static async discoverInventorySitemaps(baseUrl) {
+    static async discoverInventorySitemaps(baseUrl, proxyUrl) {
         const origin = new URL(baseUrl).origin;
         console.log(`[Sitemap] Probing sitemaps for: ${origin}`);
         // Step 1.1: Check robots.txt
-        const sitemapsFromRobots = await this.getSitemapsFromRobots(origin);
+        const sitemapsFromRobots = await this.getSitemapsFromRobots(origin, proxyUrl);
         const confirmedSitemaps = [];
         const failureReasons = [];
         const probeUrl = async (url) => {
@@ -108,7 +109,8 @@ class SitemapDiscovery {
                     },
                     timeout: 6000,
                     responseType: url.endsWith('.gz') ? 'arraybuffer' : 'text',
-                    validateStatus: () => true
+                    validateStatus: () => true,
+                    ...(0, proxyHelper_1.getAxiosProxyConfig)(proxyUrl)
                 });
                 if (res.status === 200) {
                     let data = res.data;
@@ -176,7 +178,7 @@ class SitemapDiscovery {
     /**
      * Parse vehicle URLs from a sitemap (or sitemap index) recursively
      */
-    static async parseVehicleUrlsFromSitemap(sitemapUrl, maxUrls = 500, depth = 0, maxDepth = 3) {
+    static async parseVehicleUrlsFromSitemap(sitemapUrl, maxUrls = 500, depth = 0, maxDepth = 3, proxyUrl) {
         if (depth > maxDepth)
             return [];
         try {
@@ -184,11 +186,13 @@ class SitemapDiscovery {
             if (!rawXml) {
                 const isGz = sitemapUrl.endsWith('.gz');
                 let res;
+                const proxyConfig = (0, proxyHelper_1.getAxiosProxyConfig)(proxyUrl);
                 try {
                     res = await axios_1.default.get(sitemapUrl, {
                         headers: { 'User-Agent': DEFAULT_USER_AGENT },
                         timeout: 10000,
-                        responseType: isGz ? 'arraybuffer' : 'text'
+                        responseType: isGz ? 'arraybuffer' : 'text',
+                        ...proxyConfig
                     });
                 }
                 catch (fetchErr) {
@@ -198,7 +202,8 @@ class SitemapDiscovery {
                         res = await axios_1.default.get(sitemapUrl, {
                             headers: { 'User-Agent': DEFAULT_USER_AGENT },
                             timeout: 10000,
-                            responseType: isGz ? 'arraybuffer' : 'text'
+                            responseType: isGz ? 'arraybuffer' : 'text',
+                            ...proxyConfig
                         });
                     }
                     else {
@@ -235,7 +240,7 @@ class SitemapDiscovery {
                         const loc = sub.loc.trim();
                         const isRelevant = /inventory|vehicle|vdp|auto|new|sitemap/i.test(loc);
                         if (isRelevant || depth === 0) {
-                            const subUrls = await this.parseVehicleUrlsFromSitemap(loc, maxUrls - vehicleUrls.length, depth + 1, maxDepth);
+                            const subUrls = await this.parseVehicleUrlsFromSitemap(loc, maxUrls - vehicleUrls.length, depth + 1, maxDepth, proxyUrl);
                             vehicleUrls.push(...subUrls);
                             if (vehicleUrls.length >= maxUrls)
                                 break;
@@ -366,13 +371,14 @@ class SitemapDiscovery {
             discoveredAt: new Date().toISOString()
         };
     }
-    static async getSitemapsFromRobots(origin) {
+    static async getSitemapsFromRobots(origin, proxyUrl) {
         console.log(`[Sitemap] Step 1.1: Checking robots.txt at ${origin}/robots.txt...`);
         try {
             const robotsUrl = `${origin}/robots.txt`;
             const res = await axios_1.default.get(robotsUrl, {
                 headers: { 'User-Agent': DEFAULT_USER_AGENT },
-                timeout: 6000
+                timeout: 6000,
+                ...(0, proxyHelper_1.getAxiosProxyConfig)(proxyUrl)
             });
             const sitemaps = [];
             const lines = (res.data || '').split('\n');

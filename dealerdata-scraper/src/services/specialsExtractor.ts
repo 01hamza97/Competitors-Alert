@@ -8,6 +8,7 @@ import { URL } from 'url';
 import { CompetitorVehicleSpecial, StagedVisualSpecial, SpecialsExtractionResult } from '../types';
 import { PlaywrightCrawler } from './playwrightCrawler';
 import { normalizeDomain } from '../utils/domain';
+import { getAxiosProxyConfig } from './proxyHelper';
 
 const KNOWN_MAKES = [
   'Jeep', 'Ram', 'Dodge', 'Chrysler', 'Ford', 'Chevrolet', 'Chevy', 'GMC',
@@ -58,7 +59,8 @@ export class SpecialsExtractor {
           Pragma: 'no-cache'
         },
         timeout: 15000,
-        maxRedirects: 5
+        maxRedirects: 5,
+        ...getAxiosProxyConfig()
       });
 
       const html = String(response.data || '');
@@ -292,7 +294,8 @@ export class SpecialsExtractor {
               per_page: 250
             },
             headers: { 'x-typesense-api-key': apiKey },
-            timeout: 15000
+            timeout: 15000,
+            ...getAxiosProxyConfig()
           });
 
           const hits = res.data?.hits || [];
@@ -1249,7 +1252,8 @@ export class SpecialsExtractor {
           'User-Agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-        }
+        },
+        ...getAxiosProxyConfig()
       });
 
       const buffer = Buffer.from(response.data);

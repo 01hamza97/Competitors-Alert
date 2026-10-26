@@ -108,9 +108,9 @@ async function scrapeDealership(options) {
         console.log(`\n⚡ [Funnel Step 1/4: Direct API & Native Feeds]`);
         console.log(`   Checking known JSON API feeds & provider endpoints for ${domain}...`);
         try {
-            detectedPlatform = await platformDetector_1.PlatformDetector.detectPlatform(domain);
+            detectedPlatform = await platformDetector_1.PlatformDetector.detectPlatform(domain, options.proxyUrl);
             console.log(`   [Platform] Detected Provider: ${detectedPlatform.toUpperCase()}`);
-            const apiResult = await platformDetector_1.PlatformDetector.checkDirectApi(domain, dealerId, options.maxPages);
+            const apiResult = await platformDetector_1.PlatformDetector.checkDirectApi(domain, dealerId, options.maxPages, options.proxyUrl);
             if (apiResult.hasDirectApi && apiResult.listings.length > 0) {
                 console.log(`✨ [Funnel Step 1: Direct API] SUCCESS: Extracted ${apiResult.listings.length} listings from ${apiResult.endpoint}`);
                 listings.push(...apiResult.listings);
@@ -134,15 +134,15 @@ async function scrapeDealership(options) {
         console.log(`\n🔍 [Funnel Step 2/4: Sitemap Discovery]`);
         console.log(`   Probing ${domain} for robots.txt & XML inventory sitemaps...`);
         try {
-            const sitemaps = await sitemapDiscovery_1.SitemapDiscovery.discoverInventorySitemaps(domain);
+            const sitemaps = await sitemapDiscovery_1.SitemapDiscovery.discoverInventorySitemaps(domain, options.proxyUrl);
             if (sitemaps.length > 0) {
                 console.log(`   Discovered ${sitemaps.length} candidate sitemap(s). Searching for vehicle inventory URLs...`);
                 for (const sitemapUrl of sitemaps) {
                     const maxUrlScan = isUnlimited ? 1000 : Math.max(100, (options.maxPages || 10) * 50);
-                    const vehicleUrls = await sitemapDiscovery_1.SitemapDiscovery.parseVehicleUrlsFromSitemap(sitemapUrl, maxUrlScan);
+                    const vehicleUrls = await sitemapDiscovery_1.SitemapDiscovery.parseVehicleUrlsFromSitemap(sitemapUrl, maxUrlScan, 0, 3, options.proxyUrl);
                     if (vehicleUrls.length > 0) {
                         console.log(`   Discovered ${vehicleUrls.length} vehicle inventory URLs from: ${sitemapUrl}`);
-                        const crawler = new crawler_1.WebsiteCrawler();
+                        const crawler = new crawler_1.WebsiteCrawler({ proxyUrl: options.proxyUrl });
                         const vdpLimit = isUnlimited ? 500 : Math.min(vehicleUrls.length, (options.maxPages || 10) * 30);
                         const vdpListings = await crawler.crawlUrls(vehicleUrls, dealerId, dealerName, vdpLimit, 5);
                         // Check if listings actually have prices; slug fallbacks with $0 are only a last-resort fallback
@@ -181,7 +181,7 @@ async function scrapeDealership(options) {
         console.log(`   Fetching target inventory URL directly: ${options.targetUrl}`);
         console.log(`   Crawling HTML search results & following pagination...`);
         try {
-            const crawler = new crawler_1.WebsiteCrawler();
+            const crawler = new crawler_1.WebsiteCrawler({ proxyUrl: options.proxyUrl });
             const crawled = await crawler.crawl({
                 startUrl: options.targetUrl,
                 dealerId,
@@ -216,15 +216,15 @@ async function scrapeDealership(options) {
                 console.log(`\n🔍 [Funnel Step 3.5: Sitemap Discovery Fallback]`);
                 console.log(`   Direct SRP failed/blocked. Probing ${domain} for XML inventory sitemaps...`);
                 try {
-                    const sitemaps = await sitemapDiscovery_1.SitemapDiscovery.discoverInventorySitemaps(domain);
+                    const sitemaps = await sitemapDiscovery_1.SitemapDiscovery.discoverInventorySitemaps(domain, options.proxyUrl);
                     if (sitemaps.length > 0) {
                         console.log(`   Discovered ${sitemaps.length} candidate sitemap(s). Searching for vehicle inventory URLs...`);
                         for (const sitemapUrl of sitemaps) {
                             const maxUrlScan = isUnlimited ? 1000 : Math.max(100, (options.maxPages || 10) * 50);
-                            const vehicleUrls = await sitemapDiscovery_1.SitemapDiscovery.parseVehicleUrlsFromSitemap(sitemapUrl, maxUrlScan);
+                            const vehicleUrls = await sitemapDiscovery_1.SitemapDiscovery.parseVehicleUrlsFromSitemap(sitemapUrl, maxUrlScan, 0, 3, options.proxyUrl);
                             if (vehicleUrls.length > 0) {
                                 console.log(`   Discovered ${vehicleUrls.length} vehicle inventory URLs from: ${sitemapUrl}`);
-                                const crawler = new crawler_1.WebsiteCrawler();
+                                const crawler = new crawler_1.WebsiteCrawler({ proxyUrl: options.proxyUrl });
                                 const vdpLimit = isUnlimited ? 500 : Math.min(vehicleUrls.length, (options.maxPages || 10) * 30);
                                 const vdpListings = await crawler.crawlUrls(vehicleUrls, dealerId, dealerName, vdpLimit, 5);
                                 const pricedListings = vdpListings.filter((l) => (l.listPrice || 0) > 0);
@@ -267,7 +267,8 @@ async function scrapeDealership(options) {
                 maxPages: options.maxPages,
                 saveHtmlFiles: true,
                 extractStaticListings: mode === 'auto',
-                htmlStorageDir: options.htmlStorageDir
+                htmlStorageDir: options.htmlStorageDir,
+                proxyUrl: options.proxyUrl
             });
             pagesCrawled = crawlResult.manifest.totalPages;
             specialsImages = crawlResult.specialsImages;

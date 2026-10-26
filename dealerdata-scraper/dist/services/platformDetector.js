@@ -39,12 +39,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PlatformDetector = void 0;
 const axios_1 = __importDefault(require("axios"));
 const cheerio = __importStar(require("cheerio"));
+const proxyHelper_1 = require("./proxyHelper");
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 class PlatformDetector {
     /**
      * Detects the automotive CMS platform and checks for known API access.
      */
-    static async detectPlatform(targetUrl) {
+    static async detectPlatform(targetUrl, proxyUrl) {
         const origin = new URL(targetUrl).origin;
         console.log(`[PlatformDetector] Analyzing target platform for: ${origin}`);
         try {
@@ -54,6 +55,7 @@ class PlatformDetector {
                     Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 },
                 timeout: 12000,
+                ...(0, proxyHelper_1.getAxiosProxyConfig)(proxyUrl),
             });
             const html = res.data;
             const $ = cheerio.load(html);
@@ -93,7 +95,8 @@ class PlatformDetector {
     /**
      * Probes known automotive API endpoints and extracts structured listings if available.
      */
-    static async checkDirectApi(origin, dealerId, maxPages = 0) {
+    static async checkDirectApi(origin, dealerId, maxPages = 0, proxyUrl) {
+        const proxyConfig = (0, proxyHelper_1.getAxiosProxyConfig)(proxyUrl);
         // 1. Check if configured in dealers.json (CarsCommerce / DealerInspire API)
         try {
             const fs = await Promise.resolve().then(() => __importStar(require('fs')));
@@ -153,7 +156,8 @@ class PlatformDetector {
                                     page
                                 },
                                 headers: { 'x-typesense-api-key': typesenseKey },
-                                timeout: 15000
+                                timeout: 15000,
+                                ...proxyConfig
                             });
                             totalCount = res.data?.found || 0;
                             const hits = res.data?.hits || [];
@@ -227,7 +231,8 @@ class PlatformDetector {
                                     Referer: matchedDealer.new_inventory_url || origin,
                                     Origin: origin
                                 },
-                                timeout: 15000
+                                timeout: 15000,
+                                ...proxyConfig
                             });
                             totalCount = res.data?.Paging?.PaginationDataModel?.TotalCount || 0;
                             const cards = res.data?.DisplayCards || [];
@@ -349,7 +354,8 @@ class PlatformDetector {
                                 Referer: matchedDealer.new_inventory_url || origin,
                                 'x-api-key': apiKey
                             },
-                            timeout: 15000
+                            timeout: 15000,
+                            ...proxyConfig
                         });
                         const rawListings = response.data?.data?.listings || [];
                         totalCount = response.data?.data?.total_vehicle_count || 0;
@@ -405,7 +411,8 @@ class PlatformDetector {
             const tvUrl = `${origin}/inventory-new.json?page=1`;
             const tvRes = await axios_1.default.get(tvUrl, {
                 headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
-                timeout: 8000
+                timeout: 8000,
+                ...proxyConfig
             });
             if (tvRes.status === 200 && tvRes.data && Array.isArray(tvRes.data.vehicles) && tvRes.data.vehicles.length > 0) {
                 console.log(`[Direct API] Detected Team Velocity native JSON feed: ${tvUrl} (Total stock: ${tvRes.data.totalVehicles || 0})`);
@@ -418,7 +425,8 @@ class PlatformDetector {
                     if (curPage > 1) {
                         const nextRes = await axios_1.default.get(`${origin}/inventory-new.json?page=${curPage}`, {
                             headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
-                            timeout: 10000
+                            timeout: 10000,
+                            ...proxyConfig
                         });
                         pageData = nextRes.data;
                     }
@@ -477,7 +485,8 @@ class PlatformDetector {
                         'User-Agent': DEFAULT_USER_AGENT,
                         Accept: 'application/json'
                     },
-                    timeout: 7000
+                    timeout: 7000,
+                    ...proxyConfig
                 });
                 if (res.status === 200 && res.data) {
                     const data = res.data;

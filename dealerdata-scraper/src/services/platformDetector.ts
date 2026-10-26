@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { VehicleListing } from '../types';
+import { getAxiosProxyConfig } from './proxyHelper';
 
 export interface PlatformDetectionResult {
   platform: 'dealercom' | 'dealerinspire' | 'dealeron' | 'cdk' | 'custom' | 'unknown';
@@ -16,7 +17,7 @@ export class PlatformDetector {
   /**
    * Detects the automotive CMS platform and checks for known API access.
    */
-  static async detectPlatform(targetUrl: string): Promise<'dealercom' | 'dealerinspire' | 'dealeron' | 'cdk' | 'custom' | 'unknown'> {
+  static async detectPlatform(targetUrl: string, proxyUrl?: string): Promise<'dealercom' | 'dealerinspire' | 'dealeron' | 'cdk' | 'custom' | 'unknown'> {
     const origin = new URL(targetUrl).origin;
     console.log(`[PlatformDetector] Analyzing target platform for: ${origin}`);
 
@@ -27,6 +28,7 @@ export class PlatformDetector {
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         },
         timeout: 12000,
+        ...getAxiosProxyConfig(proxyUrl),
       });
 
       const html = res.data;
@@ -83,12 +85,14 @@ export class PlatformDetector {
   static async checkDirectApi(
     origin: string,
     dealerId?: string,
-    maxPages = 0
+    maxPages = 0,
+    proxyUrl?: string
   ): Promise<{
     hasDirectApi: boolean;
     endpoint?: string;
     listings: VehicleListing[];
   }> {
+    const proxyConfig = getAxiosProxyConfig(proxyUrl);
     // 1. Check if configured in dealers.json (CarsCommerce / DealerInspire API)
     try {
       const fs = await import('fs');
@@ -154,7 +158,8 @@ export class PlatformDetector {
                   page
                 },
                 headers: { 'x-typesense-api-key': typesenseKey },
-                timeout: 15000
+                timeout: 15000,
+                ...proxyConfig
               });
 
               totalCount = res.data?.found || 0;
@@ -236,7 +241,8 @@ export class PlatformDetector {
                   Referer: matchedDealer.new_inventory_url || origin,
                   Origin: origin
                 },
-                timeout: 15000
+                timeout: 15000,
+                ...proxyConfig
               });
 
               totalCount = res.data?.Paging?.PaginationDataModel?.TotalCount || 0;
@@ -365,7 +371,8 @@ export class PlatformDetector {
                 Referer: matchedDealer.new_inventory_url || origin,
                 'x-api-key': apiKey
               },
-              timeout: 15000
+              timeout: 15000,
+              ...proxyConfig
             });
 
             const rawListings = response.data?.data?.listings || [];
@@ -426,7 +433,8 @@ export class PlatformDetector {
       const tvUrl = `${origin}/inventory-new.json?page=1`;
       const tvRes = await axios.get(tvUrl, {
         headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
-        timeout: 8000
+        timeout: 8000,
+        ...proxyConfig
       });
       if (tvRes.status === 200 && tvRes.data && Array.isArray(tvRes.data.vehicles) && tvRes.data.vehicles.length > 0) {
         console.log(`[Direct API] Detected Team Velocity native JSON feed: ${tvUrl} (Total stock: ${tvRes.data.totalVehicles || 0})`);
@@ -440,7 +448,8 @@ export class PlatformDetector {
           if (curPage > 1) {
             const nextRes = await axios.get(`${origin}/inventory-new.json?page=${curPage}`, {
               headers: { 'User-Agent': DEFAULT_USER_AGENT, Accept: 'application/json' },
-              timeout: 10000
+              timeout: 10000,
+              ...proxyConfig
             });
             pageData = nextRes.data;
           }
@@ -502,7 +511,8 @@ export class PlatformDetector {
             'User-Agent': DEFAULT_USER_AGENT,
             Accept: 'application/json'
           },
-          timeout: 7000
+          timeout: 7000,
+          ...proxyConfig
         });
 
         if (res.status === 200 && res.data) {

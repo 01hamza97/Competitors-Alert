@@ -40,8 +40,10 @@ export async function POST(request) {
       created_at: new Date().toISOString(),
     };
 
-    users.push(newUser);
-    saveUsers(users);
+    if (!process.env.DATABASE_URL) {
+      users.push(newUser);
+      saveUsers(users);
+    }
 
     if (process.env.DATABASE_URL) {
       try {

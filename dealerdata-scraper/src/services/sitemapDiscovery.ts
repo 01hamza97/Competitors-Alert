@@ -2,6 +2,7 @@ import axios from 'axios';
 import { XMLParser } from 'fast-xml-parser';
 import * as zlib from 'zlib';
 import { VehicleListing } from '../types';
+import { getAxiosProxyConfig } from './proxyHelper';
 
 const COMMON_SITEMAP_PATHS = [
   '/sitemap.xml',
@@ -61,12 +62,12 @@ export class SitemapDiscovery {
   /**
    * Discover and collect candidate inventory sitemaps from robots.txt and standard endpoints
    */
-  static async discoverInventorySitemaps(baseUrl: string): Promise<string[]> {
+  static async discoverInventorySitemaps(baseUrl: string, proxyUrl?: string): Promise<string[]> {
     const origin = new URL(baseUrl).origin;
     console.log(`[Sitemap] Probing sitemaps for: ${origin}`);
 
     // Step 1.1: Check robots.txt
-    const sitemapsFromRobots = await this.getSitemapsFromRobots(origin);
+    const sitemapsFromRobots = await this.getSitemapsFromRobots(origin, proxyUrl);
     const confirmedSitemaps: string[] = [];
     const failureReasons: { url: string; status?: number; error?: string }[] = [];
 
@@ -79,7 +80,8 @@ export class SitemapDiscovery {
           },
           timeout: 6000,
           responseType: url.endsWith('.gz') ? 'arraybuffer' : 'text',
-          validateStatus: () => true
+          validateStatus: () => true,
+          ...getAxiosProxyConfig(proxyUrl)
         });
 
         if (res.status === 200) {
@@ -156,7 +158,8 @@ export class SitemapDiscovery {
     sitemapUrl: string,
     maxUrls = 500,
     depth = 0,
-    maxDepth = 3
+    maxDepth = 3,
+    proxyUrl?: string
   ): Promise<string[]> {
     if (depth > maxDepth) return [];
 
@@ -166,11 +169,13 @@ export class SitemapDiscovery {
       if (!rawXml) {
         const isGz = sitemapUrl.endsWith('.gz');
         let res: any;
+        const proxyConfig = getAxiosProxyConfig(proxyUrl);
         try {
           res = await axios.get(sitemapUrl, {
             headers: { 'User-Agent': DEFAULT_USER_AGENT },
             timeout: 10000,
-            responseType: isGz ? 'arraybuffer' : 'text'
+            responseType: isGz ? 'arraybuffer' : 'text',
+            ...proxyConfig
           });
         } catch (fetchErr: any) {
           if (fetchErr.response?.status === 429) {
@@ -179,7 +184,8 @@ export class SitemapDiscovery {
             res = await axios.get(sitemapUrl, {
               headers: { 'User-Agent': DEFAULT_USER_AGENT },
               timeout: 10000,
-              responseType: isGz ? 'arraybuffer' : 'text'
+              responseType: isGz ? 'arraybuffer' : 'text',
+              ...proxyConfig
             });
           } else {
             throw fetchErr;
@@ -218,7 +224,7 @@ export class SitemapDiscovery {
             const loc = sub.loc.trim();
             const isRelevant = /inventory|vehicle|vdp|auto|new|sitemap/i.test(loc);
             if (isRelevant || depth === 0) {
-              const subUrls = await this.parseVehicleUrlsFromSitemap(loc, maxUrls - vehicleUrls.length, depth + 1, maxDepth);
+              const subUrls = await this.parseVehicleUrlsFromSitemap(loc, maxUrls - vehicleUrls.length, depth + 1, maxDepth, proxyUrl);
               vehicleUrls.push(...subUrls);
               if (vehicleUrls.length >= maxUrls) break;
             }
@@ -357,13 +363,14 @@ export class SitemapDiscovery {
     };
   }
 
-  private static async getSitemapsFromRobots(origin: string): Promise<string[]> {
+  private static async getSitemapsFromRobots(origin: string, proxyUrl?: string): Promise<string[]> {
     console.log(`[Sitemap] Step 1.1: Checking robots.txt at ${origin}/robots.txt...`);
     try {
       const robotsUrl = `${origin}/robots.txt`;
       const res = await axios.get(robotsUrl, {
         headers: { 'User-Agent': DEFAULT_USER_AGENT },
-        timeout: 6000
+        timeout: 6000,
+        ...getAxiosProxyConfig(proxyUrl)
       });
 
       const sitemaps: string[] = [];

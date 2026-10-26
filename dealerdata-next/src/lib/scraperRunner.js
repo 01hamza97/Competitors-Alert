@@ -234,6 +234,11 @@ export async function launchScraperJob({
     args.push('--crawlSpecials');
   }
 
+  const proxyUrl = process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+  if (proxyUrl) {
+    args.push(`--proxy=${proxyUrl}`);
+  }
+
   console.log(`[Scraper Runner] Launching scraper in: ${scraperDir}`);
   console.log(`[Scraper Runner] Command: ${bin} ${args.join(' ')}`);
 
@@ -244,6 +249,7 @@ export async function launchScraperJob({
     env: {
       ...process.env,
       DATABASE_URL: process.env.DATABASE_URL || 'mysql://root:1254879863@localhost:3306/dealerdata',
+      ...(proxyUrl ? { SCRAPER_PROXY_URL: proxyUrl } : {}),
     },
     shell: false,
   });

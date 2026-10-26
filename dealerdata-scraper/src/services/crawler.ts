@@ -4,6 +4,8 @@ import { VehicleListing } from '../types';
 import { cleanHtml } from './htmlCleaner';
 import { ListingExtractor } from './listingExtractor';
 
+import { getAxiosProxyConfig } from './proxyHelper';
+
 export interface CrawlEngineOptions {
   startUrl: string;
   dealerId?: string;
@@ -11,6 +13,11 @@ export interface CrawlEngineOptions {
   maxPages?: number;
   inventoryType?: 'New' | 'Used' | 'All';
   requestDelayMs?: number;
+  proxyUrl?: string;
+}
+
+export interface WebsiteCrawlerOptions {
+  proxyUrl?: string;
 }
 
 export class WebsiteCrawler {
@@ -18,7 +25,8 @@ export class WebsiteCrawler {
   private visitedUrls: Set<string> = new Set();
   private foundListings: VehicleListing[] = [];
 
-  constructor() {
+  constructor(options?: WebsiteCrawlerOptions) {
+    const proxyConfig = getAxiosProxyConfig(options?.proxyUrl);
     this.client = axios.create({
       timeout: 15000,
       headers: {
@@ -26,7 +34,8 @@ export class WebsiteCrawler {
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9'
-      }
+      },
+      ...proxyConfig
     });
   }
 

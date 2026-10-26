@@ -41,14 +41,22 @@ const axios_1 = __importDefault(require("axios"));
 const playwright_1 = require("playwright");
 const htmlSnapshotService_1 = require("./htmlSnapshotService");
 const listingExtractor_1 = require("./listingExtractor");
+const proxyHelper_1 = require("./proxyHelper");
 class PlaywrightCrawler {
     browser = null;
     context = null;
-    async init() {
+    async init(proxyUrl) {
         if (!this.browser) {
-            console.log('[Playwright] Launching headless browser with stealth config...');
+            const pwProxy = (0, proxyHelper_1.getPlaywrightProxy)(proxyUrl);
+            if (pwProxy) {
+                console.log(`[Playwright] Launching headless browser through proxy: ${pwProxy.server}...`);
+            }
+            else {
+                console.log('[Playwright] Launching headless browser with stealth config...');
+            }
             this.browser = await playwright_1.chromium.launch({
                 headless: true,
+                proxy: pwProxy,
                 args: [
                     '--disable-blink-features=AutomationControlled',
                     '--no-sandbox',
@@ -94,7 +102,7 @@ class PlaywrightCrawler {
      * Crawls targeted pages using Playwright, rendering JavaScript and saving clean HTML snapshots
      */
     async crawl(options) {
-        await this.init();
+        await this.init(options.proxyUrl);
         const page = await this.context.newPage();
         const isUnlimited = options.maxPages === 0 || options.maxPages === -1 || options.maxPages === undefined;
         const maxPages = isUnlimited ? 40 : Math.min(options.maxPages ?? 40, 40);
@@ -135,7 +143,8 @@ class PlaywrightCrawler {
                                         requestedFields: ['vin', 'stock', 'type', 'year', 'make', 'model', 'trim', 'vdp_url', 'pricing', 'extra_fields']
                                     }, {
                                         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-                                        timeout: 10000
+                                        timeout: 10000,
+                                        ...(0, proxyHelper_1.getAxiosProxyConfig)(options.proxyUrl)
                                     });
                                     const moreListings = moreRes.data?.data?.listings || [];
                                     if (moreListings.length > 0) {

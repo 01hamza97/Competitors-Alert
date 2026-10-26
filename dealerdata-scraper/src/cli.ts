@@ -23,6 +23,7 @@ async function main() {
   const saveToDb = !hasFlag('no-db');
   const tryDirectApi = !hasFlag('no-api');
   const useSitemapFirst = hasFlag('sitemap-first') ? true : (hasFlag('no-sitemap') ? false : undefined);
+  const proxyUrl = getArg('proxy') || process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
 
   console.log(`Starting Scraper CLI with parameters:`);
   console.log(`- Target URL: ${url}`);
@@ -31,6 +32,10 @@ async function main() {
   console.log(`- Page Depth: ${maxPages === 0 ? 'Unlimited (All Pages)' : `${maxPages} pages`}`);
   console.log(`- Dealer ID: ${dealerId}`);
   console.log(`- Save to DB: ${saveToDb}`);
+  if (proxyUrl) {
+    const masked = proxyUrl.replace(/:\/\/[^:]+:[^@]+@/, '://***:***@');
+    console.log(`- Proxy: ${masked}`);
+  }
 
   try {
     const result = await scrapeDealership({
@@ -43,6 +48,7 @@ async function main() {
       saveToDb,
       tryDirectApi,
       useSitemapFirst,
+      proxyUrl,
       crawlSpecials: false,
       specialsOnly: false
     });

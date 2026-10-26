@@ -3,6 +3,7 @@ import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import { HtmlSnapshotService } from './htmlSnapshotService';
 import { HtmlCrawlManifest, SpecialsOfferImage, VehicleListing } from '../types';
 import { ListingExtractor } from './listingExtractor';
+import { getPlaywrightProxy, getAxiosProxyConfig } from './proxyHelper';
 
 export interface PlaywrightCrawlOptions {
   startUrl: string;
@@ -12,17 +13,24 @@ export interface PlaywrightCrawlOptions {
   saveHtmlFiles?: boolean;
   extractStaticListings?: boolean;
   htmlStorageDir?: string;
+  proxyUrl?: string;
 }
 
 export class PlaywrightCrawler {
   private browser: Browser | null = null;
   private context: BrowserContext | null = null;
 
-  async init(): Promise<void> {
+  async init(proxyUrl?: string): Promise<void> {
     if (!this.browser) {
-      console.log('[Playwright] Launching headless browser with stealth config...');
+      const pwProxy = getPlaywrightProxy(proxyUrl);
+      if (pwProxy) {
+        console.log(`[Playwright] Launching headless browser through proxy: ${pwProxy.server}...`);
+      } else {
+        console.log('[Playwright] Launching headless browser with stealth config...');
+      }
       this.browser = await chromium.launch({
         headless: true,
+        proxy: pwProxy,
         args: [
           '--disable-blink-features=AutomationControlled',
           '--no-sandbox',
@@ -77,7 +85,7 @@ export class PlaywrightCrawler {
     listings: VehicleListing[];
     specialsImages: SpecialsOfferImage[];
   }> {
-    await this.init();
+    await this.init(options.proxyUrl);
     const page = await this.context!.newPage();
 
     const isUnlimited = options.maxPages === 0 || options.maxPages === -1 || options.maxPages === undefined;
@@ -130,7 +138,8 @@ export class PlaywrightCrawler {
                     requestedFields: ['vin', 'stock', 'type', 'year', 'make', 'model', 'trim', 'vdp_url', 'pricing', 'extra_fields']
                   }, {
                     headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-                    timeout: 10000
+                    timeout: 10000,
+                    ...getAxiosProxyConfig(options.proxyUrl)
                   });
                   const moreListings = moreRes.data?.data?.listings || [];
                   if (moreListings.length > 0) {

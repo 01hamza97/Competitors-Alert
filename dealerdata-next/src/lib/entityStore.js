@@ -292,6 +292,9 @@ function readLocal(entity) {
 }
 
 function writeLocal(entity, data) {
+  if (process.env.DATABASE_URL && (entity === 'User' || entity === 'PendingUser' || entity === 'Session')) {
+    return;
+  }
   const file = getFilePath(entity);
   fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8');
 }

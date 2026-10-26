@@ -69,6 +69,7 @@ export interface CrawlOptions {
   specialsUrl?: string;
   crawlSpecials?: boolean;
   specialsOnly?: boolean;
+  proxyUrl?: string;
 }
 
 export interface CompetitorVehicleSpecial {

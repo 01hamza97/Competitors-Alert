@@ -121,11 +121,12 @@ export function getUsers() {
 }
 
 export function saveUsers(users) {
+  if (process.env.DATABASE_URL) return;
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
 }
 
 export function getSessions() {
-  if (!fs.existsSync(SESSIONS_FILE)) {
+  if (process.env.DATABASE_URL || !fs.existsSync(SESSIONS_FILE)) {
     return {};
   }
   try {
@@ -136,6 +137,7 @@ export function getSessions() {
 }
 
 export function saveSessions(sessions) {
+  if (process.env.DATABASE_URL) return;
   fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8');
 }
 
@@ -152,12 +154,13 @@ export async function createSession(userId) {
           expiresAt,
         },
       });
+      return token;
     } catch (e) {
       console.warn('Prisma createSession fallback to local JSON:', e.message);
     }
   }
 
-  // Also maintain local sessions store for fast local resolution
+  // Fallback to local sessions store only if database is offline or not configured
   const sessions = getSessions();
   sessions[token] = {
     userId,
@@ -223,6 +226,7 @@ export async function destroySession(token) {
     try {
       await prisma.session.delete({ where: { token } }).catch(() => {});
     } catch {}
+    return;
   }
 
   const sessions = getSessions();

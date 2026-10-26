@@ -46,6 +46,7 @@ const cheerio = __importStar(require("cheerio"));
 const url_1 = require("url");
 const playwrightCrawler_1 = require("./playwrightCrawler");
 const domain_1 = require("../utils/domain");
+const proxyHelper_1 = require("./proxyHelper");
 const KNOWN_MAKES = [
     'Jeep', 'Ram', 'Dodge', 'Chrysler', 'Ford', 'Chevrolet', 'Chevy', 'GMC',
     'Buick', 'Cadillac', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia',
@@ -88,7 +89,8 @@ class SpecialsExtractor {
                     Pragma: 'no-cache'
                 },
                 timeout: 15000,
-                maxRedirects: 5
+                maxRedirects: 5,
+                ...(0, proxyHelper_1.getAxiosProxyConfig)()
             });
             const html = String(response.data || '');
             // Check if html contains rendered specials cards with actual prices (avoid static JSON-LD shells without pricing)
@@ -292,7 +294,8 @@ class SpecialsExtractor {
                             per_page: 250
                         },
                         headers: { 'x-typesense-api-key': apiKey },
-                        timeout: 15000
+                        timeout: 15000,
+                        ...(0, proxyHelper_1.getAxiosProxyConfig)()
                     });
                     const hits = res.data?.hits || [];
                     console.log(`[SpecialsExtractor] Typesense returned ${hits.length} active specials.`);
@@ -1169,7 +1172,8 @@ class SpecialsExtractor {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                     Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-                }
+                },
+                ...(0, proxyHelper_1.getAxiosProxyConfig)()
             });
             const buffer = Buffer.from(response.data);
             const imageHash = crypto_1.default.createHash('sha256').update(buffer).digest('hex');
