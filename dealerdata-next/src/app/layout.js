@@ -2,7 +2,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata = {
-  title: "Dealer Dashboard — Performance Suite",
+  title: "Competitor Alerts — Automotive Intelligence Platform",
   description: "Automotive dealership lead, competitor, and inventory intelligence platform",
 };
 

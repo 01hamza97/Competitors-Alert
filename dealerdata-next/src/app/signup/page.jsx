@@ -53,13 +53,13 @@ export default function SignupPage() {
       <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 sm:p-12 lg:p-16 z-10">
         <div>
           <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-extrabold text-base shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform">
-              D
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-extrabold text-sm shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform">
+              CA
             </div>
             <div>
-              <h1 className="text-xl font-black tracking-tight text-white">DealerData</h1>
+              <h1 className="text-xl font-black tracking-tight text-white">Competitor Alerts</h1>
               <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-400">
-                SaaS Performance Suite
+                Automotive Intelligence
               </p>
             </div>
           </Link>
@@ -67,10 +67,7 @@ export default function SignupPage() {
 
         <div className="max-w-md w-full mx-auto py-8">
           <div className="mb-6">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 mb-3">
-              <Sparkles size={12} /> 14-Day Free Trial &bull; No Credit Card Required
-            </div>
-            <h2 className="text-3xl font-black tracking-tight text-white">Start with DealerData</h2>
+            <h2 className="text-3xl font-black tracking-tight text-white">Join Competitor Alerts</h2>
             <p className="text-sm text-slate-400 mt-1">
               Join leading dealership groups scaling their sales and BDC conversions.
             </p>

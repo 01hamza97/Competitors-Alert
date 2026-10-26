@@ -44,10 +44,10 @@ export default function AppLayout({ children }) {
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-extrabold text-xl shadow-xl shadow-blue-500/30 animate-pulse">
-          D
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-extrabold text-base shadow-xl shadow-blue-500/30 animate-pulse">
+          CA
         </div>
-        <p className="mt-4 text-xs font-semibold tracking-wider uppercase text-slate-400">Loading DealerData...</p>
+        <p className="mt-4 text-xs font-semibold tracking-wider uppercase text-slate-400">Loading Competitor Alerts...</p>
       </div>
     );
   }
@@ -62,10 +62,10 @@ export default function AppLayout({ children }) {
         <div className="p-5 border-b border-slate-800 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-blue-500/20">
-                D
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold text-xs shadow-md shadow-blue-500/20">
+                CA
               </div>
-              <h1 className="text-white font-black text-lg tracking-tight">DealerData</h1>
+              <h1 className="text-white font-black text-base tracking-tight">Competitor Alerts</h1>
             </div>
             <p className="text-slate-400 text-[11px] mt-1 font-medium flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
