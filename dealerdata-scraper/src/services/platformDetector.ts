@@ -168,30 +168,57 @@ export class PlatformDetector {
           // 1.A. Typesense Search API (Dealer Venom / Modern SPAs)
           // -----------------------------------------------------------------
           if (matchedDealer.platform === 'typesense' || apiUrl.includes('typesense')) {
-            const typesenseKey = matchedDealer.api_key || 'eQUa8iq30l8Tu908Drz9WKqar6tCJGd4';
+            let typesenseKey = matchedDealer.api_key;
+            if (!typesenseKey && apiUrl.includes('x-typesense-api-key=')) {
+              const match = apiUrl.match(/x-typesense-api-key=([^&]+)/);
+              if (match) typesenseKey = match[1];
+            }
+            if (!typesenseKey) typesenseKey = 'eQUa8iq30l8Tu908Drz9WKqar6tCJGd4';
+
+            let collectionName = matchedDealer.collection_name;
+            if (!collectionName && apiUrl.includes('/collections/')) {
+              const match = apiUrl.match(/\/collections\/([^/?]+)/);
+              if (match) collectionName = match[1];
+            }
+            if (!collectionName) collectionName = 'vehicles-FOR27004';
+
+            const isMultiSearch = apiUrl.includes('multi_search');
             let page = 1;
             const perPage = 250;
             const seenVins = new Set<string>();
             let totalCount = 0;
 
             while (page <= pageCap) {
+              const multiSearchPayload = {
+                searches: [
+                  {
+                    query_by: 'vin,stockNumber,lastEight,year,make,model,trim,body,features,engine,transmission,drivetrain,fuel,dealertag,exteriorColor,genericColor',
+                    query_by_weights: '10,10,10,3,8,10,7,2,3,1,2,2,2,2,2,1',
+                    text_match_type: 'max_weight',
+                    drop_tokens_mode: 'both_sides:3',
+                    drop_tokens_threshold: 1,
+                    highlight_fields: 'none',
+                    highlight_full_fields: 'none',
+                    collection: collectionName,
+                    q: '*',
+                    facet_by: 'bed,body,cab,dealertag,drivetrain,exteriorHex,features,finalPriceRange,flags.type,fuel,make,mileage,model,mpgCityRange,mpgHwayRange,range,rangeSliderPrice,transmissionType,trim,yr',
+                    filter_by: 'condition:New',
+                    max_facet_values: 100000,
+                    page,
+                    per_page: perPage
+                  }
+                ]
+              };
+
               let res;
               try {
-                res = await axios.get(apiUrl, {
-                  params: {
-                    q: '*',
-                    query_by: 'vin',
-                    filter_by: 'condition:=New',
-                    per_page: perPage,
-                    page
-                  },
-                  headers: { 'x-typesense-api-key': typesenseKey },
-                  timeout: 15000,
-                  ...proxyConfig
-                });
-              } catch (reqErr: any) {
-                if (proxyUrl && proxyUrl !== 'direct') {
-                  console.warn(`[Typesense API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
+                if (isMultiSearch) {
+                  res = await axios.post(apiUrl, multiSearchPayload, {
+                    headers: { 'Content-Type': 'application/json', 'x-typesense-api-key': typesenseKey },
+                    timeout: 15000,
+                    ...proxyConfig
+                  });
+                } else {
                   res = await axios.get(apiUrl, {
                     params: {
                       q: '*',
@@ -201,15 +228,39 @@ export class PlatformDetector {
                       page
                     },
                     headers: { 'x-typesense-api-key': typesenseKey },
-                    timeout: 15000
+                    timeout: 15000,
+                    ...proxyConfig
                   });
+                }
+              } catch (reqErr: any) {
+                if (proxyUrl && proxyUrl !== 'direct') {
+                  console.warn(`[Typesense API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
+                  if (isMultiSearch) {
+                    res = await axios.post(apiUrl, multiSearchPayload, {
+                      headers: { 'Content-Type': 'application/json', 'x-typesense-api-key': typesenseKey },
+                      timeout: 15000
+                    });
+                  } else {
+                    res = await axios.get(apiUrl, {
+                      params: {
+                        q: '*',
+                        query_by: 'vin',
+                        filter_by: 'condition:=New',
+                        per_page: perPage,
+                        page
+                      },
+                      headers: { 'x-typesense-api-key': typesenseKey },
+                      timeout: 15000
+                    });
+                  }
                 } else {
                   throw reqErr;
                 }
               }
 
-              totalCount = res.data?.found || 0;
-              const hits = res.data?.hits || [];
+              const resData = isMultiSearch ? (res.data?.results?.[0] || {}) : res.data;
+              totalCount = resData?.found || 0;
+              const hits = resData?.hits || [];
 
               for (const hit of hits) {
                 const doc = hit.document;

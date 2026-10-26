@@ -934,7 +934,7 @@
         "competitor_id": "banister_ford_of_marlow_heights",
         "dealer_type": "competitor",
         "platform": "typesense",
-        "api_url": "https://hjnrb3s21408ezpfp.a1.typesense.net/collections/vehicles-FOR27004/documents/search",
+        "api_url": "https://hjnrb3s21408ezpfp.a1.typesense.net/multi_search?x-typesense-api-key=eQUa8iq30l8Tu908Drz9WKqar6tCJGd4",
         "api_key": "eQUa8iq30l8Tu908Drz9WKqar6tCJGd4",
         "collection_name": "vehicles-FOR27004",
         "new_inventory_url": "https://www.banisterfordofmarlowheights.com/new-vehicles/",
