@@ -108,7 +108,7 @@ export class WebsiteCrawler {
         }
 
         // 4. Find next page URL
-        currentUrl = this.findNextPageUrl(rawHtml, currentUrl);
+        currentUrl = this.findNextPageUrl(rawHtml, currentUrl, pageListings.length);
 
         if (currentUrl) {
           // Polite delay between requests
@@ -228,7 +228,7 @@ export class WebsiteCrawler {
   /**
    * Identifies pagination / next-page links
    */
-  private findNextPageUrl(html: string, currentUrl: string): string | null {
+  private findNextPageUrl(html: string, currentUrl: string, pageListingsCount: number = 0): string | null {
     const $ = cheerio.load(html);
 
     // Standard pagination selectors
@@ -266,6 +266,24 @@ export class WebsiteCrawler {
     if ($('.pagination-next.disabled, li.next.disabled, li.pagination-next.disabled, [aria-disabled="true"][aria-label*="next" i]').length > 0) {
       console.log(`[Crawler] Reached last page (disabled Next button in DOM).`);
       return null;
+    }
+
+    // PixelMotion / WordPress platform pagination (uses ?inv_page=N, no static <a> next link)
+    if (html.includes('pmVlpData') || html.includes('inv_page') || html.includes('pm-motors-plugin')) {
+      if (pageListingsCount > 0) {
+        try {
+          const u = new URL(currentUrl);
+          const currentInvPage = parseInt(u.searchParams.get('inv_page') || '1', 10);
+          const nextInvPage = currentInvPage + 1;
+          u.searchParams.set('inv_page', nextInvPage.toString());
+          const nextUrl = u.toString();
+          if (!this.visitedUrls.has(nextUrl)) {
+            return nextUrl;
+          }
+        } catch {
+          // Invalid URL
+        }
+      }
     }
 
     return null;
