@@ -70,9 +70,9 @@ export interface SpecialsResult {
 }
 
 export interface ScrapeContext {
-  page: Page;
-  $: cheerio.CheerioAPI;
-  html: string;
+  page?: Page;
+  $?: cheerio.CheerioAPI;
+  html?: string;
   targetUrl: string;
   dealerId: string;
   dealerName: string;

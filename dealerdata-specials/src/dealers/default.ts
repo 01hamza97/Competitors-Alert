@@ -35,6 +35,7 @@ export class DefaultSpecialsScraper implements DealerSpecialsScraper {
     const { $, targetUrl, dealerId, dealerName, domain, logger } = ctx;
     const htmlSpecials: CompetitorVehicleSpecial[] = [];
     const visualSpecials: StagedVisualSpecial[] = [];
+    if (!$) return { htmlSpecials, visualSpecials };
     const storage = new StorageManager();
 
     // 1. EXTRACT STRUCTURED HTML SPECIALS CARDS

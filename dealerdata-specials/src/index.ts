@@ -55,25 +55,16 @@ export async function scrapeSpecials(options: ScrapeSpecialsOptions): Promise<Sp
   const errors: string[] = [];
   let primaryDomain = '';
 
-  try {
-    await browser.init({
-      proxyUrl: options.proxyUrl || process.env.SCRAPER_PROXY_URL,
-      headless: options.headless
-    });
+  let browserInitialized = false;
 
+  try {
     for (const url of urlsToScrape) {
-      console.log(`\n🔍 [Specials] Crawling specials page: ${url}`);
+      console.log(`\n🔍 [Specials] Processing specials for: ${url}`);
       try {
         const domain = new URL(url).hostname.replace(/^www\./, '');
         if (!primaryDomain) primaryDomain = domain;
 
-        const { page, html } = await browser.fetchPage(url);
-        const $ = cheerio.load(html);
-
         const ctx: ScrapeContext = {
-          page,
-          $,
-          html,
           targetUrl: url,
           dealerId,
           dealerName,
@@ -87,18 +78,43 @@ export async function scrapeSpecials(options: ScrapeSpecialsOptions): Promise<Sp
           }
         };
 
-        const result = await scraper.scrape(ctx);
+        // 1. Try scraper directly (fast API or lightweight HTTP)
+        let result = await scraper.scrape(ctx).catch((err: any) => {
+          console.warn(`   ⚠️ [${scraper.id}] Direct scrape notice: ${err.message}`);
+          return { htmlSpecials: [], visualSpecials: [] };
+        });
+
+        // 2. If direct extraction found no specials, fall back to headless browser
+        if (result.htmlSpecials.length === 0 && result.visualSpecials.length === 0) {
+          if (!browserInitialized) {
+            await browser.init({
+              proxyUrl: options.proxyUrl || process.env.SCRAPER_PROXY_URL,
+              headless: options.headless
+            });
+            browserInitialized = true;
+          }
+
+          const { page, html } = await browser.fetchPage(url);
+          const $ = cheerio.load(html);
+          ctx.page = page;
+          ctx.$ = $;
+          ctx.html = html;
+
+          result = await scraper.scrape(ctx);
+          await page.close().catch(() => {});
+        }
+
         allHtmlSpecials.push(...result.htmlSpecials);
         allVisualSpecials.push(...result.visualSpecials);
-
-        await page.close().catch(() => {});
       } catch (pageErr: any) {
         console.error(`❌ [Specials] Error scraping ${url}:`, pageErr.message);
         errors.push(`${url}: ${pageErr.message}`);
       }
     }
   } finally {
-    await browser.close();
+    if (browserInitialized) {
+      await browser.close();
+    }
   }
 
   // 3. Generate N8N Vision AI Manifest
