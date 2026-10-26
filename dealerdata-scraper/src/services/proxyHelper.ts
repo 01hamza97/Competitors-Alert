@@ -55,12 +55,18 @@ export function getAxiosProxyConfig(explicitUrl?: string): {
     return {};
   }
 
-  const agent = new HttpsProxyAgent(proxyUrl);
-  return {
-    httpsAgent: agent,
-    httpAgent: agent,
-    proxy: false
-  };
+  try {
+    new URL(proxyUrl);
+    const agent = new HttpsProxyAgent(proxyUrl);
+    return {
+      httpsAgent: agent,
+      httpAgent: agent,
+      proxy: false
+    };
+  } catch (err: any) {
+    console.warn(`[ProxyHelper] Failed to create proxy agent with "${proxyUrl}": ${err.message}. Falling back to direct connection.`);
+    return {};
+  }
 }
 
 /**
@@ -89,7 +95,8 @@ export function getPlaywrightProxy(explicitUrl?: string): {
     }
 
     return result;
-  } catch {
-    return { server: proxyUrl };
+  } catch (err: any) {
+    console.warn(`[ProxyHelper] Malformed proxy URL "${proxyUrl}": ${err.message}. Bypassing proxy for direct connection.`);
+    return undefined;
   }
 }

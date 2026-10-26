@@ -175,18 +175,38 @@ export class PlatformDetector {
             let totalCount = 0;
 
             while (page <= pageCap) {
-              const res = await axios.get(apiUrl, {
-                params: {
-                  q: '*',
-                  query_by: 'vin',
-                  filter_by: 'condition:=New',
-                  per_page: perPage,
-                  page
-                },
-                headers: { 'x-typesense-api-key': typesenseKey },
-                timeout: 15000,
-                ...proxyConfig
-              });
+              let res;
+              try {
+                res = await axios.get(apiUrl, {
+                  params: {
+                    q: '*',
+                    query_by: 'vin',
+                    filter_by: 'condition:=New',
+                    per_page: perPage,
+                    page
+                  },
+                  headers: { 'x-typesense-api-key': typesenseKey },
+                  timeout: 15000,
+                  ...proxyConfig
+                });
+              } catch (reqErr: any) {
+                if (proxyUrl && proxyUrl !== 'direct') {
+                  console.warn(`[Typesense API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
+                  res = await axios.get(apiUrl, {
+                    params: {
+                      q: '*',
+                      query_by: 'vin',
+                      filter_by: 'condition:=New',
+                      per_page: perPage,
+                      page
+                    },
+                    headers: { 'x-typesense-api-key': typesenseKey },
+                    timeout: 15000
+                  });
+                } else {
+                  throw reqErr;
+                }
+              }
 
               totalCount = res.data?.found || 0;
               const hits = res.data?.hits || [];
@@ -260,16 +280,34 @@ export class PlatformDetector {
 
             while (page <= pageCap) {
               const cosmosUrl = `${apiUrl}&pt=${page}&pn=${pn}&displayCardsShown=${(page - 1) * pn}`;
-              const res = await axios.get(cosmosUrl, {
-                headers: {
-                  'User-Agent':
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                  Referer: matchedDealer.new_inventory_url || origin,
-                  Origin: origin
-                },
-                timeout: 15000,
-                ...proxyConfig
-              });
+              let res;
+              try {
+                res = await axios.get(cosmosUrl, {
+                  headers: {
+                    'User-Agent':
+                      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    Referer: matchedDealer.new_inventory_url || origin,
+                    Origin: origin
+                  },
+                  timeout: 15000,
+                  ...proxyConfig
+                });
+              } catch (reqErr: any) {
+                if (proxyUrl && proxyUrl !== 'direct') {
+                  console.warn(`[DealerOn API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
+                  res = await axios.get(cosmosUrl, {
+                    headers: {
+                      'User-Agent':
+                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                      Referer: matchedDealer.new_inventory_url || origin,
+                      Origin: origin
+                    },
+                    timeout: 15000
+                  });
+                } else {
+                  throw reqErr;
+                }
+              }
 
               totalCount = res.data?.Paging?.PaginationDataModel?.TotalCount || 0;
               const cards = res.data?.DisplayCards || [];

@@ -54,12 +54,19 @@ function getAxiosProxyConfig(explicitUrl) {
     if (!proxyUrl) {
         return {};
     }
-    const agent = new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
-    return {
-        httpsAgent: agent,
-        httpAgent: agent,
-        proxy: false
-    };
+    try {
+        new URL(proxyUrl);
+        const agent = new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
+        return {
+            httpsAgent: agent,
+            httpAgent: agent,
+            proxy: false
+        };
+    }
+    catch (err) {
+        console.warn(`[ProxyHelper] Failed to create proxy agent with "${proxyUrl}": ${err.message}. Falling back to direct connection.`);
+        return {};
+    }
 }
 /**
  * Returns Playwright launch proxy options if a proxy is configured.
@@ -81,7 +88,8 @@ function getPlaywrightProxy(explicitUrl) {
         }
         return result;
     }
-    catch {
-        return { server: proxyUrl };
+    catch (err) {
+        console.warn(`[ProxyHelper] Malformed proxy URL "${proxyUrl}": ${err.message}. Bypassing proxy for direct connection.`);
+        return undefined;
     }
 }

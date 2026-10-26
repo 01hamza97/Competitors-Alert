@@ -5,7 +5,7 @@ async function main() {
   const args = process.argv.slice(2);
   const getArg = (name: string): string | undefined => {
     const match = args.find((a) => a.startsWith(`--${name}=`));
-    return match ? match.split('=')[1] : undefined;
+    return match ? match.slice(name.length + 3) : undefined;
   };
 
   const hasFlag = (name: string): boolean => {
