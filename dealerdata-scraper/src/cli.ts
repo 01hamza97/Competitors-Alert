@@ -1,4 +1,5 @@
 import { scrapeDealership, ScrapeMode } from './index';
+import { getProxyUrl } from './services/proxyHelper';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -23,7 +24,7 @@ async function main() {
   const saveToDb = !hasFlag('no-db');
   const tryDirectApi = !hasFlag('no-api');
   const useSitemapFirst = hasFlag('sitemap-first') ? true : (hasFlag('no-sitemap') ? false : undefined);
-  const proxyUrl = getArg('proxy') || process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+  const proxyUrl = getArg('proxy') || getProxyUrl();
 
   console.log(`Starting Scraper CLI with parameters:`);
   console.log(`- Target URL: ${url}`);

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const index_1 = require("./index");
+const proxyHelper_1 = require("./services/proxyHelper");
 async function main() {
     const args = process.argv.slice(2);
     const getArg = (name) => {
@@ -22,7 +23,7 @@ async function main() {
     const saveToDb = !hasFlag('no-db');
     const tryDirectApi = !hasFlag('no-api');
     const useSitemapFirst = hasFlag('sitemap-first') ? true : (hasFlag('no-sitemap') ? false : undefined);
-    const proxyUrl = getArg('proxy') || process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+    const proxyUrl = getArg('proxy') || (0, proxyHelper_1.getProxyUrl)();
     console.log(`Starting Scraper CLI with parameters:`);
     console.log(`- Target URL: ${url}`);
     console.log(`- Scrape Mode: ${mode} (static | ai-html | auto)`);

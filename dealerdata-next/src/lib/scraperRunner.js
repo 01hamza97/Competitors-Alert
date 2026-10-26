@@ -234,7 +234,29 @@ export async function launchScraperJob({
     args.push('--crawlSpecials');
   }
 
-  const proxyUrl = process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+  let proxyUrl = process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+  if (!proxyUrl) {
+    const candidates = [
+      path.join(scraperDir, '.env'),
+      path.join(process.cwd(), '.env.local'),
+      path.join(process.cwd(), '.env'),
+      '/var/www/Competitors-Alert/dealerdata-scraper/.env',
+      '/var/www/Competitors-Alert/dealerdata-next/.env.local',
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        try {
+          const content = fs.readFileSync(p, 'utf-8');
+          const m = content.match(/^SCRAPER_PROXY_URL=["']?([^"'\r\n]+)["']?/m);
+          if (m && m[1]) {
+            proxyUrl = m[1].trim();
+            break;
+          }
+        } catch {}
+      }
+    }
+  }
+
   if (proxyUrl) {
     args.push(`--proxy=${proxyUrl}`);
   }

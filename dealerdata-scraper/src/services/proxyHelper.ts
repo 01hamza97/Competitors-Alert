@@ -1,9 +1,36 @@
 import { HttpsProxyAgent } from 'https-proxy-agent';
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+
+let envLoaded = false;
+function loadEnvFilesOnce() {
+  if (envLoaded) return;
+  envLoaded = true;
+
+  const candidates = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), '.env.local'),
+    path.resolve(__dirname, '../../.env'),
+    path.resolve(__dirname, '../.env'),
+    path.resolve(process.cwd(), '../dealerdata-next/.env.local'),
+    path.resolve(process.cwd(), '../dealerdata-next/.env'),
+    '/var/www/Competitors-Alert/dealerdata-scraper/.env',
+    '/var/www/Competitors-Alert/dealerdata-next/.env.local'
+  ];
+
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      dotenv.config({ path: c });
+    }
+  }
+}
 
 /**
  * Returns the effective proxy URL from explicit options or environment variables.
  */
 export function getProxyUrl(explicitUrl?: string): string | undefined {
+  loadEnvFilesOnce();
   const url = explicitUrl || process.env.SCRAPER_PROXY_URL || process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
   if (!url || typeof url !== 'string' || url.trim() === '') {
     return undefined;
