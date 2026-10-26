@@ -141,7 +141,7 @@ class PlatformDetector {
             if (dealersData.length > 0) {
                 let matchedDealer = null;
                 const normalizedTarget = origin.toLowerCase().replace(/https?:\/\/(www\.)?/, '');
-                const normalizedId = (dealerId || '').toLowerCase().replace(/^store_/, '');
+                const normalizedId = (dealerId || '').toLowerCase().replace(/^(store|comp)_/, '');
                 for (const store of dealersData) {
                     const storeIdMatch = (store.scraper_store_id || '').toLowerCase() === normalizedId;
                     for (const d of store.dealers || []) {
@@ -161,7 +161,7 @@ class PlatformDetector {
                     const apiKey = matchedDealer.api_key || 'OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl';
                     console.log(`[Direct API] Found preconfigured API for ${matchedDealer.dealer_name}: ${apiUrl}`);
                     const listings = [];
-                    const pageCap = maxPages === 0 ? 50 : maxPages;
+                    const pageCap = maxPages === 0 ? 1000 : maxPages;
                     // -----------------------------------------------------------------
                     // 1.A. Typesense Search API (Dealer Venom / Modern SPAs)
                     // -----------------------------------------------------------------
@@ -444,7 +444,7 @@ class PlatformDetector {
                 const listings = [];
                 let curPage = 1;
                 const totalPages = tvRes.data.totalPages || 1;
-                const pageCap = maxPages === 0 ? 50 : maxPages;
+                const pageCap = maxPages === 0 ? 1000 : maxPages;
                 let pageData = tvRes.data;
                 while (curPage <= totalPages && curPage <= pageCap) {
                     if (curPage > 1) {

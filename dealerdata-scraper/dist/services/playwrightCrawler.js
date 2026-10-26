@@ -107,7 +107,7 @@ class PlaywrightCrawler {
         await this.init(options.proxyUrl);
         const page = await this.context.newPage();
         const isUnlimited = options.maxPages === 0 || options.maxPages === -1 || options.maxPages === undefined;
-        const maxPages = isUnlimited ? 40 : Math.min(options.maxPages ?? 40, 40);
+        const maxPages = isUnlimited ? 1000 : (options.maxPages ?? 1000);
         const htmlFiles = [];
         const allSpecialsImages = [];
         const staticListings = [];

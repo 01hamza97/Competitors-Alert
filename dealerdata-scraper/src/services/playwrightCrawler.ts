@@ -91,7 +91,7 @@ export class PlaywrightCrawler {
     const page = await this.context!.newPage();
 
     const isUnlimited = options.maxPages === 0 || options.maxPages === -1 || options.maxPages === undefined;
-    const maxPages: number = isUnlimited ? 40 : Math.min(options.maxPages ?? 40, 40);
+    const maxPages: number = isUnlimited ? 1000 : (options.maxPages ?? 1000);
     const htmlFiles: string[] = [];
     const allSpecialsImages: SpecialsOfferImage[] = [];
     const staticListings: VehicleListing[] = [];
