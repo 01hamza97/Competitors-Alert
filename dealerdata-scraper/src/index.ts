@@ -320,7 +320,12 @@ export async function scrapeDealership(options: CrawlOptions): Promise<CrawlResu
     outputFile = DatabaseSync.saveToJsonFile(finalListings, parsedUrl.hostname, options.outputDir);
 
     if (options.saveToDb !== false) {
-      await DatabaseSync.syncToDatabase(finalListings, dealerId);
+      const validPricedCount = finalListings.filter((i) => (i.listPrice || 0) > 0).length;
+      if (validPricedCount === 0 && finalListings.length > 0) {
+        console.warn(`⚠️  [DatabaseSync] REJECTING DB SYNC: 100% of ${finalListings.length} vehicles have $0 price (blocking or rate limiting occurred). Preserving existing database snapshot.`);
+      } else {
+        await DatabaseSync.syncToDatabase(finalListings, dealerId);
+      }
     }
   }
 

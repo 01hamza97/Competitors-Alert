@@ -307,7 +307,13 @@ async function scrapeDealership(options) {
     if (finalListings.length > 0) {
         outputFile = dbSync_1.DatabaseSync.saveToJsonFile(finalListings, parsedUrl.hostname, options.outputDir);
         if (options.saveToDb !== false) {
-            await dbSync_1.DatabaseSync.syncToDatabase(finalListings, dealerId);
+            const validPricedCount = finalListings.filter((i) => (i.listPrice || 0) > 0).length;
+            if (validPricedCount === 0 && finalListings.length > 0) {
+                console.warn(`⚠️  [DatabaseSync] REJECTING DB SYNC: 100% of ${finalListings.length} vehicles have $0 price (blocking or rate limiting occurred). Preserving existing database snapshot.`);
+            }
+            else {
+                await dbSync_1.DatabaseSync.syncToDatabase(finalListings, dealerId);
+            }
         }
     }
     // Specials extraction has been removed to keep the pipeline 100% focused on fast, reliable inventory crawling.

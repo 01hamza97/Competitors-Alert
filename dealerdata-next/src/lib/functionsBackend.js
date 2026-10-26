@@ -621,24 +621,41 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
       where.snapshotDate = activeDate;
       let rows = await prisma.competitorVehicleInventory.findMany({ where, take: 5000 });
 
-      // If any targeted dealer has no rows on activeDate, fall back to their latest available snapshot <= activeDate
+      // Check which returned dealers have actual non-zero priced inventory
+      const dealersWithValidPrices = new Set(
+        rows
+          .filter(r => (r.listPrice || 0) > 0)
+          .map(r => (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, ''))
+      );
+
       const returnedDealers = new Set(rows.map(r => (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, '')));
       const uniqueTargets = [...new Set(targetIds.map(id => id.replace(/^store_/, '').replace(/^comp_/, '')))];
+
       for (const tKey of uniqueTargets) {
-        if (!returnedDealers.has(tKey)) {
-          const latestSnap = await prisma.competitorVehicleInventory.findFirst({
+        const hasRows = returnedDealers.has(tKey);
+        const hasValidPrices = dealersWithValidPrices.has(tKey);
+
+        // If dealer is missing entirely OR all their rows on activeDate are $0 (e.g. rate limit/scrape failure)
+        if (!hasRows || !hasValidPrices) {
+          const latestValidSnap = await prisma.competitorVehicleInventory.findFirst({
             where: {
               dealerId: { in: [tKey, `store_${tKey}`, `comp_${tKey}`] },
               snapshotDate: { lte: activeDate },
+              listPrice: { gt: 0 },
             },
             orderBy: { snapshotDate: 'desc' },
             select: { snapshotDate: true },
           });
-          if (latestSnap?.snapshotDate) {
+
+          if (latestValidSnap?.snapshotDate) {
+            // Remove zero-priced rows for this dealer if we found a better snapshot
+            if (hasRows && !hasValidPrices) {
+              rows = rows.filter(r => (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, '') !== tKey);
+            }
             const fallbackRows = await prisma.competitorVehicleInventory.findMany({
               where: {
                 dealerId: { in: [tKey, `store_${tKey}`, `comp_${tKey}`] },
-                snapshotDate: latestSnap.snapshotDate,
+                snapshotDate: latestValidSnap.snapshotDate,
               },
               take: 5000,
             });

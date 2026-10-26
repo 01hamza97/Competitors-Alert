@@ -233,8 +233,8 @@ export default function ModelInventoryView({ store }) {
   // Accumulate a source row into a pivot cell, keyed by competitor_id
   function accumCell(pivotRow, competitorId, srcRow) {
     const inv = (srcRow.inventory_count != null && srcRow.inventory_count > 0) ? srcRow.inventory_count : 1;
-    const lp = srcRow.low_price ?? null;
-    const hp = srcRow.high_price ?? null;
+    const lp = (srcRow.low_price != null && Number(srcRow.low_price) > 0) ? Number(srcRow.low_price) : null;
+    const hp = (srcRow.high_price != null && Number(srcRow.high_price) > 0) ? Number(srcRow.high_price) : null;
 
     if (priceMode === 'all') {
       if (!pivotRow[competitorId]) pivotRow[competitorId] = { count: 0, low: null, high: null };
@@ -596,10 +596,10 @@ export default function ModelInventoryView({ store }) {
                             {all?.count ?? ''}
                           </td>
                           <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : ''} text-emerald-700 ${isClient ? 'bg-blue-50/60' : ''}`}>
-                            {all?.low != null ? <><sup className="text-[9px]">$</sup>{all.low.toLocaleString()}</> : ''}
+                            {all?.low != null && all.low > 0 ? <><sup className="text-[9px]">$</sup>{all.low.toLocaleString()}</> : ''}
                           </td>
                           <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : ''} text-amber-600 ${isClient ? 'bg-blue-50/60' : ''}`}>
-                            {all?.high != null ? <><sup className="text-[9px]">$</sup>{all.high.toLocaleString()}</> : ''}
+                            {all?.high != null && all.high > 0 ? <><sup className="text-[9px]">$</sup>{all.high.toLocaleString()}</> : ''}
                           </td>
                         </React.Fragment>
                       );
