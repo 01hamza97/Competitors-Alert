@@ -210,8 +210,49 @@ export async function scrapeDealership(options: CrawlOptions): Promise<CrawlResu
     }
 
     if (listings.length === 0) {
-      console.log(`⚠️  [Funnel Step 3: Direct SRP] Static SRP crawl yielded 0 priced listings (client-side SPA or dynamic pricing required).`);
-      console.log(`   Advancing down funnel to Step 4 (Headless Browser / Playwright Automation)...`);
+      console.log(`⚠️  [Funnel Step 3: Direct SRP] Static SRP crawl yielded 0 priced listings (blocked or dynamic JS required).`);
+
+      // Fallback: If sitemap was not run in Step 2, run it now before launching Playwright
+      if (!sitemapUsed && options.useSitemapFirst !== false) {
+        console.log(`\n🔍 [Funnel Step 3.5: Sitemap Discovery Fallback]`);
+        console.log(`   Direct SRP failed/blocked. Probing ${domain} for XML inventory sitemaps...`);
+
+        try {
+          const sitemaps = await SitemapDiscovery.discoverInventorySitemaps(domain);
+          if (sitemaps.length > 0) {
+            console.log(`   Discovered ${sitemaps.length} candidate sitemap(s). Searching for vehicle inventory URLs...`);
+            for (const sitemapUrl of sitemaps) {
+              const maxUrlScan = isUnlimited ? 1000 : Math.max(100, (options.maxPages || 10) * 50);
+              const vehicleUrls = await SitemapDiscovery.parseVehicleUrlsFromSitemap(sitemapUrl, maxUrlScan);
+
+              if (vehicleUrls.length > 0) {
+                console.log(`   Discovered ${vehicleUrls.length} vehicle inventory URLs from: ${sitemapUrl}`);
+                const crawler = new WebsiteCrawler();
+                const vdpLimit = isUnlimited ? 500 : Math.min(vehicleUrls.length, (options.maxPages || 10) * 30);
+                const vdpListings = await crawler.crawlUrls(vehicleUrls, dealerId, dealerName, vdpLimit, 5);
+
+                const pricedListings = vdpListings.filter((l) => (l.listPrice || 0) > 0);
+                if (pricedListings.length > 0) {
+                  listings.push(...vdpListings);
+                  sitemapUsed = true;
+                  funnelStageUsed = 'sitemap';
+                  pagesCrawled += Math.min(vehicleUrls.length, vdpLimit);
+                  console.log(`✨ [Funnel Step 3.5: Sitemap Fallback] SUCCESS: Harvested ${vdpListings.length} vehicles with prices via sitemap!`);
+                  break;
+                } else if (vdpListings.length > 0 && sitemapFallbackListings.length === 0) {
+                  sitemapFallbackListings.push(...vdpListings);
+                }
+              }
+            }
+          }
+        } catch (sitemapErr: any) {
+          console.warn(`   [Funnel Step 3.5: Sitemap Fallback] Notice: ${sitemapErr.message}`);
+        }
+      }
+
+      if (listings.length === 0) {
+        console.log(`   Advancing down funnel to Step 4 (Headless Browser / Playwright Automation)...`);
+      }
     }
   }
 

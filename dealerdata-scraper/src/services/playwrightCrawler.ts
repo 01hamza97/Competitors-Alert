@@ -37,7 +37,15 @@ export class PlaywrightCrawler {
           'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         viewport: { width: 1440, height: 900 },
         locale: 'en-US',
-        timezoneId: 'America/Los_Angeles'
+        timezoneId: 'America/Los_Angeles',
+        extraHTTPHeaders: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"macOS"',
+          'Upgrade-Insecure-Requests': '1'
+        }
       });
 
       // Remove webdriver flag to evade standard bot detections
@@ -160,7 +168,15 @@ export class PlaywrightCrawler {
         pageCount++;
         try {
           if (!alreadyLoadedInBrowser) {
-            await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+            try {
+              await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+            } catch (gotoErr: any) {
+              if (gotoErr.message && gotoErr.message.includes('Download is starting')) {
+                console.warn(`[Playwright] Target URL started file download instead of HTML document. Continuing DOM check...`);
+              } else {
+                throw gotoErr;
+              }
+            }
           }
           alreadyLoadedInBrowser = false;
 
