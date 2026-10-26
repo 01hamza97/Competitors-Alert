@@ -1,0 +1,39 @@
+{
+  "name": "dealerdata-specials",
+  "version": "1.0.0",
+  "description": "Modular dealership specials scraper with ZenRows proxy, Playwright stealth rendering, MySQL sync, and N8N Vision AI manifests",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/cli.ts",
+    "scrape": "ts-node src/cli.ts",
+    "scrape:all": "ts-node src/cli.ts --all",
+    "dev": "ts-node src/cli.ts"
+  },
+  "keywords": [
+    "automotive",
+    "dealership",
+    "specials",
+    "lease-offers",
+    "apr-specials",
+    "playwright",
+    "zenrows",
+    "vision-ai",
+    "n8n"
+  ],
+  "author": "DealerData Engineering",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.7",
+    "https-proxy-agent": "^7.0.6",
+    "mysql2": "^3.12.0",
+    "playwright": "^1.49.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}
