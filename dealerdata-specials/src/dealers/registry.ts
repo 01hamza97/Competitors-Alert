@@ -1,21 +1,11 @@
 import { DealerSpecialsScraper } from './types';
 import { DefaultSpecialsScraper } from './default';
-import { JStarCdjrScraper } from './j_star_cdjr';
-import { TuttleClickHyundaiScraper } from './tuttle_click_hyundai';
-import { HuntingtonBeachHyundaiScraper } from './huntington_beach_hyundai';
-import { MossBrosCdjrScraper } from './moss_bros_cdjr';
-import { AaronCdjrScraper } from './aaron_cdjr';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
 
   static {
-    // Register custom dealer scrapers
-    DealerRegistry.register(new JStarCdjrScraper());
-    DealerRegistry.register(new TuttleClickHyundaiScraper());
-    DealerRegistry.register(new HuntingtonBeachHyundaiScraper());
-    DealerRegistry.register(new MossBrosCdjrScraper());
-    DealerRegistry.register(new AaronCdjrScraper());
+    // Registered dealer scrapers will be added here one-by-one
   }
 
   static register(scraper: DealerSpecialsScraper): void {
@@ -29,8 +19,7 @@ export class DealerRegistry {
   }
 
   /**
-   * Resolves a dedicated dealer scraper by dealer ID, name, or domain.
-   * If not found, falls back to DefaultSpecialsScraper.
+   * Resolves a dedicated dealer scraper by dealer ID or domain.
    */
   static getScraper(identifier?: string, fallbackUrl?: string): DealerSpecialsScraper {
     if (!identifier && !fallbackUrl) {
@@ -51,7 +40,7 @@ export class DealerRegistry {
       } catch {}
     }
 
-    // Try partial match on registered scraper domains
+    // Try partial match on registered scraper keys
     for (const [key, scraper] of DealerRegistry.scrapers.entries()) {
       if (clean && key.includes(clean)) {
         return scraper;
