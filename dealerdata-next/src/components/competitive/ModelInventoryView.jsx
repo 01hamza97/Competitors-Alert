@@ -224,7 +224,7 @@ export default function ModelInventoryView({ store }) {
   const models = useMemo(() => {
     let src = typeFilteredRows;
     if (makeFilter !== 'all') src = src.filter(r => r.make === makeFilter);
-    if (yearFilter !== 'all') src = src.filter(r => r.year === Number(yearFilter));
+    if (yearFilter !== 'all') src = src.filter(r => Number(r.year) === Number(yearFilter));
     return [...new Set(src.map(r => r.model).filter(Boolean))].sort();
   }, [typeFilteredRows, makeFilter, yearFilter]);
 
@@ -234,28 +234,23 @@ export default function ModelInventoryView({ store }) {
   function accumCell(pivotRow, competitorId, srcRow) {
     const inv = (srcRow.inventory_count != null && srcRow.inventory_count > 0) ? srcRow.inventory_count : 1;
     const lp = (srcRow.low_price != null && Number(srcRow.low_price) > 0) ? Number(srcRow.low_price) : null;
-    const hp = (srcRow.high_price != null && Number(srcRow.high_price) > 0) ? Number(srcRow.high_price) : null;
 
     if (priceMode === 'all') {
-      if (!pivotRow[competitorId]) pivotRow[competitorId] = { count: 0, low: null, high: null };
+      if (!pivotRow[competitorId]) pivotRow[competitorId] = { count: 0, low: null };
       pivotRow[competitorId].count += inv;
       if (lp != null && (pivotRow[competitorId].low == null || lp < pivotRow[competitorId].low)) pivotRow[competitorId].low = lp;
-      if (hp != null && (pivotRow[competitorId].high == null || hp > pivotRow[competitorId].high)) pivotRow[competitorId].high = hp;
     } else if (priceMode === 'inventory') {
       pivotRow[competitorId] = (pivotRow[competitorId] || 0) + inv;
     } else if (priceMode === 'low') {
       const prev = pivotRow[competitorId];
       if (lp != null && (prev == null || lp < prev.num)) pivotRow[competitorId] = { num: lp, disp: null };
-    } else {
-      const prev = pivotRow[competitorId];
-      if (hp != null && (prev == null || hp > prev.num)) pivotRow[competitorId] = { num: hp, disp: null };
     }
   }
 
   const filteredRows = useMemo(() => {
     const result = typeFilteredRows.filter(r =>
       (makeFilter === 'all' || r.make === makeFilter) &&
-      (yearFilter === 'all' || r.year === Number(yearFilter)) &&
+      (yearFilter === 'all' || Number(r.year) === Number(yearFilter)) &&
       (modelFilter === 'all' || r.model === modelFilter)
     );
 
@@ -265,11 +260,11 @@ export default function ModelInventoryView({ store }) {
     const beforeFilterCountPer = {};
     typeFilteredRows.forEach(r => { beforeFilterCountPer[r.competitor_id] = (beforeFilterCountPer[r.competitor_id] || 0) + 1; });
     const excluded = Object.keys(beforeFilterCountPer).filter(c => !afterFilterCountPer[c]);
-    if (excluded.length) console.warn('[Pivot] competitor_ids with 0 rows after make/model filter:', excluded, { makeFilter, modelFilter });
-    console.log('[Pivot] filteredRows per competitor_id:', afterFilterCountPer, `(makeFilter=${makeFilter}, modelFilter=${modelFilter})`);
+    if (excluded.length) console.warn('[Pivot] competitor_ids with 0 rows after make/model/year filter:', excluded, { makeFilter, modelFilter, yearFilter });
+    console.log('[Pivot] filteredRows per competitor_id:', afterFilterCountPer, `(makeFilter=${makeFilter}, modelFilter=${modelFilter}, yearFilter=${yearFilter})`);
 
     return result;
-  }, [typeFilteredRows, makeFilter, modelFilter]);
+  }, [typeFilteredRows, makeFilter, modelFilter, yearFilter]);
 
   // Grand totals keyed by competitor_id
   const grandTotals = useMemo(() => {
@@ -389,8 +384,8 @@ export default function ModelInventoryView({ store }) {
   const makeColPx = 90;
   const modelColPx = isGroupedHierarchy ? 220 : 180;
   const yearColPx = 52;
-  const dataColPx = priceMode === 'all' ? 80 : 110;
-  const dealerColSpan = priceMode === 'all' ? 3 : 1;
+  const dataColPx = priceMode === 'all' ? 85 : 110;
+  const dealerColSpan = priceMode === 'all' ? 2 : 1;
   const totalWidth = (showYear ? yearColPx : 0) + (showMake ? makeColPx : 0) + modelColPx + dataColPx * dealerColSpan * competitorIds.length;
 
   if (!storeName || !dealershipKey) {
@@ -425,7 +420,6 @@ export default function ModelInventoryView({ store }) {
           <button onClick={() => setPriceMode('all')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${priceMode === 'all' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>All Columns</button>
           <button onClick={() => setPriceMode('inventory')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${priceMode === 'inventory' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Inventory Count</button>
           <button onClick={() => setPriceMode('low')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${priceMode === 'low' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Low Price</button>
-          <button onClick={() => setPriceMode('high')} className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${priceMode === 'high' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>High Price</button>
         </div>
 
         {makes.length > 1 && (
@@ -466,7 +460,7 @@ export default function ModelInventoryView({ store }) {
             {showMake && <col style={{ width: `${makeColPx}px` }} />}
             <col style={{ width: `${modelColPx}px` }} />
             {competitorIds.map(cid => priceMode === 'all'
-              ? [<col key={`${cid}-c`} style={{ width: `${dataColPx}px` }} />, <col key={`${cid}-l`} style={{ width: `${dataColPx}px` }} />, <col key={`${cid}-h`} style={{ width: `${dataColPx}px` }} />]
+              ? [<col key={`${cid}-c`} style={{ width: `${dataColPx}px` }} />, <col key={`${cid}-l`} style={{ width: `${dataColPx}px` }} />]
               : <col key={cid} style={{ width: `${dataColPx}px` }} />
             )}
           </colgroup>
@@ -477,7 +471,7 @@ export default function ModelInventoryView({ store }) {
                 {showMake && <th />}
                 <th />
                 {competitorIds.map(cid => (
-                  <th key={cid} colSpan={3} className={`py-2 px-2 text-center text-xs font-bold border-l border-gray-200 leading-tight ${cid === clientStoreKey ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}>
+                  <th key={cid} colSpan={2} className={`py-2 px-2 text-center text-xs font-bold border-l border-gray-200 leading-tight ${cid === clientStoreKey ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}>
                     {competitorIdToName[cid] || cid}
                   </th>
                 ))}
@@ -528,7 +522,6 @@ export default function ModelInventoryView({ store }) {
                 <React.Fragment key={cid}>
                   <th className={`py-2 px-1 text-center text-xs font-semibold border-l border-gray-200 ${cid === clientStoreKey ? 'bg-blue-50 text-blue-600' : 'text-blue-500'}`}>Inv</th>
                   <th className={`py-2 px-1 text-center text-xs font-semibold ${cid === clientStoreKey ? 'bg-blue-50 text-emerald-700' : 'text-emerald-600'}`}>Low $</th>
-                  <th className={`py-2 px-1 text-center text-xs font-semibold ${cid === clientStoreKey ? 'bg-blue-50 text-amber-600' : 'text-amber-500'}`}>High $</th>
                 </React.Fragment>
               ) : (
                 <th key={cid} className={`py-3 px-2 text-center text-xs font-semibold uppercase tracking-wider leading-tight break-words ${cid === clientStoreKey ? 'bg-blue-50 text-blue-700' : 'text-gray-400'}`}>
@@ -546,7 +539,7 @@ export default function ModelInventoryView({ store }) {
               {competitorIds.map(cid => priceMode === 'all' ? (
                 <React.Fragment key={cid}>
                   <td className={`py-2 px-1 text-center text-xs font-bold text-blue-700 tabular-nums border-l border-gray-200 ${cid === clientStoreKey ? 'bg-blue-100' : ''}`}>{grandTotals[cid] || ''}</td>
-                  <td className={cid === clientStoreKey ? 'bg-blue-100' : ''} /><td className={cid === clientStoreKey ? 'bg-blue-100' : ''} />
+                  <td className={cid === clientStoreKey ? 'bg-blue-100' : ''} />
                 </React.Fragment>
               ) : (
                 <td key={cid} className={`py-2 px-2 text-center text-xs font-bold text-blue-700 tabular-nums ${cid === clientStoreKey ? 'bg-blue-100' : ''}`}>
@@ -598,9 +591,6 @@ export default function ModelInventoryView({ store }) {
                           <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : ''} text-emerald-700 ${isClient ? 'bg-blue-50/60' : ''}`}>
                             {all?.low != null && all.low > 0 ? <><sup className="text-[9px]">$</sup>{all.low.toLocaleString()}</> : ''}
                           </td>
-                          <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : ''} text-amber-600 ${isClient ? 'bg-blue-50/60' : ''}`}>
-                            {all?.high != null && all.high > 0 ? <><sup className="text-[9px]">$</sup>{all.high.toLocaleString()}</> : ''}
-                          </td>
                         </React.Fragment>
                       );
                     }
@@ -629,12 +619,10 @@ export default function ModelInventoryView({ store }) {
         </table>
         <p className="px-5 py-2 text-xs text-gray-400">
           {priceMode === 'all'
-            ? 'Inv = unit count (blue intensity, ranked within each model). Low $ = lowest listed price. High $ = highest listed price.'
+            ? 'Inv = unit count (blue intensity, ranked within each model). Low $ = lowest listed price.'
             : priceMode === 'inventory'
               ? 'Blue intensity ranks dealers within each model (darker = most units for that model). Blank = no inventory.'
-              : priceMode === 'low'
-                ? 'Darker blue = lowest price for that model (best deal).'
-                : 'Darker blue = highest price for that model.'}
+              : 'Darker blue = lowest price for that model (best deal).'}
           {' New inventory only.'}
           {snapshotDate
             ? ` Snapshot: ${format(new Date(snapshotDate + 'T12:00:00'), 'MMM d, yyyy')}`
