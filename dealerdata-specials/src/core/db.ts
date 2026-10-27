@@ -35,6 +35,16 @@ export class DatabaseManager {
     const cleanDealerId = dealerId.replace(/^store_/, '');
     let insertedCount = 0;
 
+    // Remove old specials for this dealer on today's snapshot so fresh flyer specials supersede generic baselines
+    try {
+      await pool.execute(
+        'DELETE FROM competitor_vehicle_specials WHERE dealer_id = ? AND snapshot_date = ?',
+        [cleanDealerId, snapshotDate]
+      );
+    } catch (e: any) {
+      console.warn(`[Database] Notice clearing old specials for ${cleanDealerId}: ${e.message}`);
+    }
+
     for (let i = 0; i < specials.length; i++) {
       const item = specials[i];
       const modelSafe = (item.model || 'model').replace(/[^a-zA-Z0-9]/g, '_');

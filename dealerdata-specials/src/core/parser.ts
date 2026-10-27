@@ -1,3 +1,7 @@
+import fs from 'fs';
+import path from 'path';
+import { execSync } from 'child_process';
+
 export const KNOWN_MAKES = [
   'Jeep', 'Ram', 'Dodge', 'Chrysler', 'Ford', 'Chevrolet', 'Chevy', 'GMC',
   'Buick', 'Cadillac', 'Toyota', 'Honda', 'Nissan', 'Hyundai', 'Kia',
@@ -184,5 +188,196 @@ export class SpecialsParser {
     }
 
     return { year, make, model, trim };
+  }
+
+  /**
+   * Fast native OCR on a flyer image file
+   */
+  static ocrImage(imagePath: string): string {
+    const ocrBin = path.resolve(__dirname, '../../bin/ocr');
+    if (!fs.existsSync(ocrBin) || !fs.existsSync(imagePath)) return '';
+    try {
+      const out = execSync(`"${ocrBin}" "${imagePath}"`, {
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'ignore']
+      });
+      return out
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter(Boolean)
+        .join(' ');
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Parses vehicle specials directly from flyer OCR text
+   */
+  static parseFlyerOcr(
+    ocrText: string,
+    dealerId: string,
+    dealerName: string,
+    flyerUrl: string,
+    clickUrl: string,
+    promoTitle?: string
+  ): {
+    id: string;
+    dealerId: string;
+    offerDealerName: string;
+    year: number;
+    make: string;
+    model: string;
+    trim?: string;
+    specialType: 'lease' | 'finance' | 'apr' | 'cash';
+    monthlyPayment?: number;
+    termMonths?: number;
+    downPayment?: number;
+    apr?: number;
+    title: string;
+    specialUrl?: string;
+    imageUrl?: string;
+    domain?: string;
+  }[] {
+    const specials: any[] = [];
+    const fullText = `${promoTitle || ''} ${ocrText || ''}`.trim();
+    if (fullText.length < 5) return specials;
+
+    // Detect models mentioned
+    const HYUNDAI_MODELS = [
+      'Palisade Hybrid',
+      'Palisade',
+      'Santa Fe Hybrid',
+      'Santa Fe',
+      'Tucson Plug-In Hybrid',
+      'Tucson Hybrid',
+      'Tucson',
+      'Elantra Hybrid',
+      'Elantra N',
+      'Elantra',
+      'Sonata Hybrid',
+      'Sonata',
+      'IONIQ 5 N',
+      'IONIQ 5',
+      'IONIQ 6',
+      'IONIQ 9',
+      'Kona Electric',
+      'Kona',
+      'Venue',
+      'Santa Cruz'
+    ];
+
+    const matchedModels: string[] = [];
+    // If promoTitle explicitly specifies a model, prioritize it
+    if (promoTitle) {
+      for (const m of HYUNDAI_MODELS) {
+        const reg = new RegExp(`\\b${m.replace(/\s+/g, '\\s+')}\\b`, 'i');
+        if (reg.test(promoTitle)) {
+          if (m === 'Tucson' && matchedModels.includes('Tucson Hybrid')) continue;
+          if (m === 'Santa Fe' && matchedModels.includes('Santa Fe Hybrid')) continue;
+          matchedModels.push(m);
+        }
+      }
+    }
+
+    if (matchedModels.length === 0) {
+      for (const m of HYUNDAI_MODELS) {
+        const reg = new RegExp(`\\b${m.replace(/\s+/g, '\\s+')}\\b`, 'i');
+        if (reg.test(ocrText)) {
+          if (m === 'Tucson' && matchedModels.includes('Tucson Hybrid')) continue;
+          if (m === 'Santa Fe' && matchedModels.includes('Santa Fe Hybrid')) continue;
+          matchedModels.push(m);
+        }
+      }
+    }
+
+    if (matchedModels.length === 0) return specials;
+
+    // Year
+    let year = 2026;
+    const yMatch = fullText.match(/\b(202[4-9])\b/);
+    if (yMatch) year = parseInt(yMatch[1], 10);
+
+    // Trim detection
+    const HYUNDAI_TRIMS = [
+      'Calligraphy', 'XRT Pro', 'XRT', 'Limited', 'SEL Convenience', 'SEL Sport Premium', 'SEL Premium',
+      'SEL', 'Blue SEL', 'Blue', 'SE', 'N Line', 'N', 'Pro'
+    ];
+    let matchedTrim: string | undefined = undefined;
+    for (const tr of HYUNDAI_TRIMS) {
+      if (new RegExp(`\\b${tr}\\b`, 'i').test(fullText)) {
+        matchedTrim = tr;
+        break;
+      }
+    }
+
+    // Payment ($179 / mo, $159 / month, $219 LEASE PER MONTH, etc.)
+    const payMatch = fullText.match(
+      /\$\s*([0-9]{2,4})\s*(?:\/|\b(?:lease\s+(?:per\s+)?month|lease|per\s+month|per|a\s+month|months?|mo|am)\b)/i
+    );
+    const monthlyPayment = payMatch ? parseFloat(payMatch[1]) : undefined;
+
+    // Term (24 months, 36 months, etc.)
+    const termMatch = fullText.match(/([0-9]{2})\s*(?:months?|mos?)/i);
+    const termMonths = termMatch ? parseInt(termMatch[1], 10) : monthlyPayment ? 36 : undefined;
+
+    // Down payment ($4,995 due at signing, $3,999 due at signing, etc.)
+    const downMatch = fullText.match(/\$\s*([0-9]{1,3}(?:,[0-9]{3})*)\s*due\s*at\s*signing/i);
+    const downPayment = downMatch ? parseFloat(downMatch[1].replace(/,/g, '')) : undefined;
+
+    // Off MSRP / Cash Discount
+    const offMatch = fullText.match(/\$\s*([0-9]{1,2}(?:,[0-9]{3})*)\s*(?:off\s*msrp|dealer\s*discount|discount|off\b)/i);
+    const discountAmount = offMatch ? parseFloat(offMatch[1].replace(/,/g, '')) : undefined;
+
+    // APR (0% APR, etc.)
+    let apr: number | undefined = undefined;
+    if (/0%\s*(?:apr|financing)/i.test(fullText) || /financing\s*for\s*60/i.test(fullText)) {
+      apr = 0;
+    } else {
+      const aprMatch = fullText.match(/([0-9.]+)\s*%\s*(?:apr|financing)/i);
+      if (aprMatch) apr = parseFloat(aprMatch[1]);
+    }
+
+    let specialType: 'lease' | 'finance' | 'apr' | 'cash' = 'lease';
+    if (apr !== undefined && apr >= 0) {
+      specialType = 'apr';
+    } else if (monthlyPayment) {
+      specialType = 'lease';
+    } else if (discountAmount) {
+      specialType = 'cash';
+    }
+
+    let domain = '';
+    try {
+      domain = new URL(clickUrl || flyerUrl).hostname.replace(/^www\./, '');
+    } catch {}
+
+    for (const model of matchedModels) {
+      const cleanSlug = model.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      const id = `spc_${dealerId}_flyer_${year}_${cleanSlug}_${Date.now()}`;
+      specials.push({
+        id,
+        dealerId,
+        offerDealerName: dealerName,
+        year,
+        make: 'Hyundai',
+        model,
+        trim: matchedTrim,
+        specialType,
+        monthlyPayment: specialType === 'cash' ? discountAmount : monthlyPayment,
+        termMonths: apr === 0 ? 60 : termMonths,
+        downPayment: apr === 0 ? 0 : downPayment,
+        apr,
+        title: specialType === 'cash' && discountAmount
+          ? `${year} Hyundai ${model} - $${discountAmount.toLocaleString()} OFF MSRP`
+          : `${year} Hyundai ${model}${matchedTrim ? ' ' + matchedTrim : ''}`,
+        specialUrl: clickUrl,
+        imageUrl: flyerUrl,
+        domain
+      });
+    }
+
+    return specials;
   }
 }

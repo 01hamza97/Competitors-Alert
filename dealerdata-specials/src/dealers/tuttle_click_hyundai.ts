@@ -76,6 +76,7 @@ export class TuttleClickHyundaiScraper implements DealerSpecialsScraper {
       logger.log(`API returned ${promos.length} promos directly.`);
 
       const seenFlyerImages = new Set<string>();
+      const flyerModels = new Set<string>();
 
       for (const promo of promos) {
         // A. VEHICLE CUSTOM ASSET FLYERS (Image-based for N8N Vision AI)
@@ -113,6 +114,24 @@ export class TuttleClickHyundaiScraper implements DealerSpecialsScraper {
                 pageUrl: targetUrl,
                 snapshotDate: new Date().toISOString().split('T')[0]
               });
+
+              // Run native OCR to extract real dealer pricing from flyer
+              const ocrText = SpecialsParser.ocrImage(downloaded.localPath);
+              if (ocrText) {
+                const parsed = SpecialsParser.parseFlyerOcr(
+                  ocrText,
+                  dealerId,
+                  dealerName,
+                  flyerUrl,
+                  clickUrl,
+                  promo.title
+                );
+                for (const p of parsed) {
+                  htmlSpecials.push(p);
+                  flyerModels.add(p.model.toLowerCase());
+                  logger.log(`[Flyer OCR] Extracted ${p.model} (${p.specialType}) $${p.monthlyPayment || p.apr + '%'} from flyer`);
+                }
+              }
             }
           }
         }
@@ -121,6 +140,11 @@ export class TuttleClickHyundaiScraper implements DealerSpecialsScraper {
         if (promo.type === 'INCENTIVE' && promo.incentiveData) {
           const inc = promo.incentiveData.incentive || {};
           const trim = promo.incentiveData.trim || {};
+
+          // If store has custom visual flyer special for this model, dealer's custom pricing takes priority!
+          if (trim.model && flyerModels.has(trim.model.toLowerCase())) {
+            continue;
+          }
 
           let specialType: 'lease' | 'finance' | 'apr' | 'cash' = 'lease';
           const rawType = (inc.type || '').toUpperCase();

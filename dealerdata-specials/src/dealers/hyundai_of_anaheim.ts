@@ -78,6 +78,7 @@ export class HyundaiOfAnaheimScraper implements DealerSpecialsScraper {
       logger.log(`API returned ${promos.length} promos directly.`);
 
       const seenFlyerImages = new Set<string>();
+      const flyerModels = new Set<string>();
 
       for (const promo of promos) {
         // A. VEHICLE CUSTOM ASSET FLYERS (Image-based for N8N Vision AI & visual viewer)
@@ -117,62 +118,24 @@ export class HyundaiOfAnaheimScraper implements DealerSpecialsScraper {
                 pageUrl: targetUrl,
                 snapshotDate: new Date().toISOString().split('T')[0]
               });
-            }
-          }
 
-          // Also extract structured discounts/leases from description and disclaimer if present
-          const desc = promo.description || '';
-          const disc = promo.disclaimer || '';
-          const fullFlyerText = `${promo.title || ''} ${desc} ${disc}`.trim();
-
-          const modelMatch = fullFlyerText.match(
-            /\b(Palisade Hybrid|Palisade|Santa Fe Hybrid|Santa Fe|Tucson Hybrid|Tucson|Elantra|Sonata|IONIQ 5|IONIQ 6|IONIQ 9|Kona|Venue|Santa Cruz)\b/i
-          );
-
-          if (modelMatch) {
-            const rawModel = modelMatch[1];
-            const cleanModelSlug = rawModel.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-            // 1. Check for lease payment
-            const monthlyPayment = SpecialsParser.extractMonthlyPayment(fullFlyerText);
-            const downPayment = SpecialsParser.extractDownPayment(fullFlyerText);
-            const termMonths = SpecialsParser.extractTermMonths(fullFlyerText);
-
-            // 2. Check for discount / off MSRP (e.g. "Up to $6,000 off MSRP")
-            const offMsrpMatch = fullFlyerText.match(/(?:up\s+to\s+)?\$([0-9,]+)\s+off\s+msrp/i);
-            const discountAmount = offMsrpMatch ? parseFloat(offMsrpMatch[1].replace(/,/g, '')) : undefined;
-
-            let specialType: 'lease' | 'finance' | 'apr' | 'cash' = 'lease';
-            let finalMonthlyPayment: number | undefined = monthlyPayment;
-
-            if (monthlyPayment) {
-              specialType = 'lease';
-            } else if (discountAmount) {
-              specialType = 'cash';
-              finalMonthlyPayment = discountAmount;
-            }
-
-            if (finalMonthlyPayment || downPayment) {
-              htmlSpecials.push({
-                id: `spc_${dealerId}_${promo.id}_${cleanModelSlug}`,
-                dealerId,
-                offerDealerName: dealerName,
-                year: 2026,
-                make: 'Hyundai',
-                model: rawModel,
-                trim: undefined,
-                specialType,
-                monthlyPayment: finalMonthlyPayment,
-                termMonths: termMonths || (monthlyPayment ? 36 : undefined),
-                downPayment,
-                apr: undefined,
-                title: promo.title ? `2026 Hyundai ${promo.title.trim()}` : `2026 Hyundai ${rawModel}`,
-                disclaimer: disc || desc || undefined,
-                specialUrl: promo.destinationUrl || targetUrl,
-                imageUrl: flyerUrl,
-                domain,
-                rawHtmlSnippet: desc || disc || promo.title
-              });
+              // Run native OCR to extract real dealer pricing from flyer
+              const ocrText = SpecialsParser.ocrImage(downloaded.localPath);
+              if (ocrText) {
+                const parsed = SpecialsParser.parseFlyerOcr(
+                  ocrText,
+                  dealerId,
+                  dealerName,
+                  flyerUrl,
+                  clickUrl,
+                  promo.title
+                );
+                for (const p of parsed) {
+                  htmlSpecials.push(p);
+                  flyerModels.add(p.model.toLowerCase());
+                  logger.log(`[Flyer OCR] Extracted ${p.model} (${p.specialType}) $${p.monthlyPayment || p.apr + '%'} from flyer`);
+                }
+              }
             }
           }
         }
@@ -181,6 +144,11 @@ export class HyundaiOfAnaheimScraper implements DealerSpecialsScraper {
         if (promo.type === 'INCENTIVE' && promo.incentiveData) {
           const inc = promo.incentiveData.incentive || {};
           const trim = promo.incentiveData.trim || {};
+
+          // If store has custom visual flyer special for this model, dealer's custom pricing takes priority!
+          if (trim.model && flyerModels.has(trim.model.toLowerCase())) {
+            continue;
+          }
 
           let specialType: 'lease' | 'finance' | 'apr' | 'cash' = 'lease';
           const rawType = (inc.type || '').toUpperCase();

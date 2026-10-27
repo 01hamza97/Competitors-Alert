@@ -78,6 +78,7 @@ export class GardenGroveHyundaiScraper implements DealerSpecialsScraper {
       logger.log(`API returned ${promos.length} promos directly.`);
 
       const seenFlyerImages = new Set<string>();
+      const flyerModels = new Set<string>();
 
       for (const promo of promos) {
         // A. VEHICLE CUSTOM ASSET FLYERS (Image-based for N8N Vision AI & visual viewer)
@@ -117,40 +118,24 @@ export class GardenGroveHyundaiScraper implements DealerSpecialsScraper {
                 pageUrl: targetUrl,
                 snapshotDate: new Date().toISOString().split('T')[0]
               });
-            }
-          }
 
-          // Also check if this flyer describes specific vehicle offers (e.g. 0% APR for 60mos on Tucson, Santa Fe)
-          const promoTitle = promo.title || '';
-          if (/0%\s*APR/i.test(promoTitle) || /savings\s*event/i.test(promoTitle)) {
-            const aprMatch = promoTitle.match(/([0-9.]+)%\s*APR/i);
-            const apr = aprMatch ? parseFloat(aprMatch[1]) : /0%\s*APR/i.test(promoTitle) ? 0 : undefined;
-            const termMatch = promoTitle.match(/([0-9]{2})\s*mos?/i);
-            const termMonths = termMatch ? parseInt(termMatch[1], 10) : 60;
-
-            const models = ['Tucson', 'Santa Fe'];
-            for (const m of models) {
-              const cleanModelSlug = m.toLowerCase().replace(/[^a-z0-9]/g, '_');
-              htmlSpecials.push({
-                id: `spc_${dealerId}_${promo.id}_${cleanModelSlug}`,
-                dealerId,
-                offerDealerName: dealerName,
-                year: 2026,
-                make: 'Hyundai',
-                model: m,
-                trim: undefined,
-                specialType: 'apr',
-                monthlyPayment: undefined,
-                termMonths,
-                downPayment: 0,
-                apr,
-                title: `2026 Hyundai ${m} 0% APR for ${termMonths} Months`,
-                disclaimer: promoTitle,
-                specialUrl: promo.destinationUrl || targetUrl,
-                imageUrl: flyerUrl,
-                domain,
-                rawHtmlSnippet: promoTitle
-              });
+              // Run native OCR to extract real dealer pricing from flyer
+              const ocrText = SpecialsParser.ocrImage(downloaded.localPath);
+              if (ocrText) {
+                const parsed = SpecialsParser.parseFlyerOcr(
+                  ocrText,
+                  dealerId,
+                  dealerName,
+                  flyerUrl,
+                  clickUrl,
+                  promo.title
+                );
+                for (const p of parsed) {
+                  htmlSpecials.push(p);
+                  flyerModels.add(p.model.toLowerCase());
+                  logger.log(`[Flyer OCR] Extracted ${p.model} (${p.specialType}) $${p.monthlyPayment || p.apr + '%'} from flyer`);
+                }
+              }
             }
           }
         }
@@ -159,6 +144,11 @@ export class GardenGroveHyundaiScraper implements DealerSpecialsScraper {
         if (promo.type === 'INCENTIVE' && promo.incentiveData) {
           const inc = promo.incentiveData.incentive || {};
           const trim = promo.incentiveData.trim || {};
+
+          // If store has custom visual flyer special for this model, dealer's custom pricing takes priority!
+          if (trim.model && flyerModels.has(trim.model.toLowerCase())) {
+            continue;
+          }
 
           let specialType: 'lease' | 'finance' | 'apr' | 'cash' = 'lease';
           const rawType = (inc.type || '').toUpperCase();
