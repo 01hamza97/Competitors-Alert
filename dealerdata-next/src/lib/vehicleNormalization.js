@@ -717,16 +717,70 @@ export function normalizeVehicle(vehicle) {
   }
 
   let normModel = normalizeModel(normMake, finalModel);
-  const normTrim = normalizeTrim(rawTrim, normModel);
+  let normTrim = normalizeTrim(rawTrim, normModel);
+
+  const vehicleUrl = (vehicle.vehicleUrl || vehicle.vehicle_url || '');
+  const urlLower = vehicleUrl.toLowerCase();
+
+  // ── Ford Sub-Model Promotion from Trim & URL ──
+  if (normMake === 'Ford') {
+    // 1. Bronco vs Bronco Sport:
+    // If model is "Bronco" but trim starts with "Sport" (e.g. "Sport Badlands", "Sport Big Bend",
+    // "Sport Heritage", "Sport Outer Banks") or URL indicates Bronco Sport, promote to "Bronco Sport"
+    // and strip "Sport" from the trim so it groups cleanly under Bronco Sport.
+    if (normModel === 'Bronco' && (/^sport\b/i.test(normTrim) || urlLower.includes('bronco-sport') || urlLower.includes('bronco_sport') || urlLower.includes('bronco+sport'))) {
+      normModel = 'Bronco Sport';
+      normTrim = normalizeTrim(normTrim.replace(/^sport\s*/i, '').trim(), normModel);
+    }
+
+    // 2. Mustang vs Mustang Mach-E:
+    if (normModel === 'Mustang' && (/^mach-?e\b/i.test(normTrim) || urlLower.includes('mach-e') || urlLower.includes('mach_e'))) {
+      normModel = 'Mustang Mach-E';
+      normTrim = normalizeTrim(normTrim.replace(/^mach-?e\s*/i, '').trim(), normModel);
+    }
+
+    // 3. Expedition vs Expedition MAX:
+    if (normModel === 'Expedition' && (/^max\b/i.test(normTrim) || urlLower.includes('expedition-max') || urlLower.includes('expedition_max'))) {
+      normModel = 'Expedition MAX';
+      normTrim = normalizeTrim(normTrim.replace(/^max\s*/i, '').trim(), normModel);
+    }
+
+    // 4. F-150 vs F-150 Lightning:
+    if (normModel === 'F-150' && (/^lightning\b/i.test(normTrim) || urlLower.includes('f-150-lightning') || urlLower.includes('lightning'))) {
+      normModel = 'F-150 Lightning';
+      normTrim = normalizeTrim(normTrim.replace(/^lightning\s*/i, '').trim(), normModel);
+    }
+  }
+
+  // ── Hyundai Sub-Model Promotion & "Santa" Split Repair ──
+  if (normMake === 'Hyundai') {
+    // If scraper split "Santa Fe" or "Santa Cruz" into model "Santa" and trim "Fe ..." / "Cruz ..."
+    if (normModel.toLowerCase() === 'santa') {
+      const combined = `${normTrim} ${rawTrim} ${urlLower}`.toLowerCase();
+      if (/^cruz\b/i.test(normTrim) || combined.includes('santa-cruz') || combined.includes('cruz')) {
+        normModel = 'Santa Cruz';
+        normTrim = normalizeTrim(normTrim.replace(/^cruz\s*/i, '').trim(), normModel);
+      } else {
+        const isHybrid = /\bhybrid\b/i.test(combined) && !/plug-?in/i.test(combined);
+        const isPhev = /\bplug-?in\b/i.test(combined) || /\bphev\b/i.test(combined);
+        normModel = isPhev ? 'Santa Fe Plug-In Hybrid' : isHybrid ? 'Santa Fe Hybrid' : 'Santa Fe';
+        normTrim = normalizeTrim(normTrim.replace(/^fe\s*/i, '').replace(/^hybrid\s*/i, '').trim(), normModel);
+      }
+    }
+  }
+
+  // ── Toyota Sub-Model Promotion (e.g. Corolla Cross) ──
+  if (normMake === 'Toyota' && normModel === 'Corolla' && (/^cross\b/i.test(normTrim) || urlLower.includes('corolla-cross'))) {
+    normModel = 'Corolla Cross';
+    normTrim = normalizeTrim(normTrim.replace(/^cross\s*/i, '').trim(), normModel);
+  }
 
   // ── Hybrid / EV detection from vehicle URL ──
   // When the platform puts the model as "Santa Fe" but the URL says "/Santa-Fe-Hybrid/",
   // upgrade the model. Only for models we know have canonical Hybrid/EV variants.
-  const vehicleUrl = (vehicle.vehicleUrl || vehicle.vehicle_url || '');
   if (normMake && vehicleUrl && HYBRID_MODEL_VARIANTS[normMake]) {
     const hybridTarget = HYBRID_MODEL_VARIANTS[normMake][normModel];
     if (hybridTarget && normModel !== hybridTarget) {
-      const urlLower = vehicleUrl.toLowerCase();
       const modelSlug = normModel.toLowerCase().replace(/\s+/g, '-');
       const hybridSuffix = hybridTarget.replace(normModel, '').trim().toLowerCase();
       const slugPatterns = [
