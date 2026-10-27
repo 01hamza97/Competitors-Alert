@@ -2,6 +2,7 @@ import { DealerSpecialsScraper } from './types';
 import { DefaultSpecialsScraper } from './default';
 import { TuttleClickHyundaiScraper } from './tuttle_click_hyundai';
 import { LagunaNiguelHyundaiScraper } from './laguna_niguel_hyundai';
+import { HuntingtonBeachHyundaiScraper } from './huntington_beach_hyundai';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -9,6 +10,10 @@ export class DealerRegistry {
   static {
     DealerRegistry.register(new TuttleClickHyundaiScraper());
     DealerRegistry.register(new LagunaNiguelHyundaiScraper());
+    const hbh = new HuntingtonBeachHyundaiScraper();
+    DealerRegistry.register(hbh);
+    DealerRegistry.scrapers.set('huntington_beach_hyundai', hbh);
+    DealerRegistry.scrapers.set('hunting_ton_beach_hyundai', hbh);
   }
 
   static register(scraper: DealerSpecialsScraper): void {
