@@ -48,7 +48,8 @@ export const CANONICAL_MAKES = {
 
 const ACRONYMS = new Set([
   'HD', 'EV', 'SRT', 'GT', '4xe', 'MAX', 'XL', 'XLT', 'SV', 'SL', 'RS', 'LT', 'LS', 'LTZ',
-  'ZR2', 'Z71', 'LE', 'XLE', 'SE', 'SEL', 'XRT', 'TRD', 'AWD', 'FWD', '4WD', 'PHEV'
+  'ZR2', 'Z71', 'LE', 'XLE', 'SE', 'SEL', 'XRT', 'TRD', 'AWD', 'FWD', '4WD', 'PHEV',
+  'DRW', 'SRW', 'WB'
 ]);
 
 // Specific Model Normalization Aliases by Make (lowercase input -> Canonical Name)
@@ -332,6 +333,14 @@ const CANONICAL_MODELS_BY_MAKE = {
     'transit-350': 'Transit',
     'e-series': 'E-Series',
     'e-series cutaway': 'E-Series',
+    'e-150': 'E-Series',
+    'e-250': 'E-Series',
+    'e-350': 'E-Series',
+    'e-350sd': 'E-Series',
+    'e-450': 'E-Series',
+    'e-450sd': 'E-Series',
+    'e-series van': 'E-Series',
+    'econoline': 'E-Series',
     'e-transit': 'E-Transit',
     'etransit': 'E-Transit',
   },
@@ -433,10 +442,13 @@ export function cleanRawString(str) {
     .replace(/Â\s?[®™]/g, '')                                              // mojibake Â® / Â™
     .replace(/&#0*174;|&#x0*ae;|&reg;|&#8482;|&#x2122;|&trade;/gi, '')     // HTML entities for ® / ™
     .replace(/[®™]/g, '')                                                   // literal Unicode ® / ™
-    .replace(/&amp;/gi, '&')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&quot;/gi, '"')
-    .replace(/&[a-z]+;/gi, '')
+    .replace(/&#0*39;|&#x0*27;|&apos;/gi, "'")                              // apostrophe / foot mark &#39;
+    .replace(/&#0*34;|&quot;/gi, '"')                                       // quotes
+    .replace(/&#0*38;|&amp;/gi, '&')                                        // ampersand
+    .replace(/&#0*160;|&nbsp;/gi, ' ')                                      // non-breaking space
+    .replace(/&#\d+;/g, '')                                                 // numeric entities
+    .replace(/&#x[0-9a-f]+;/gi, '')                                         // hex entities
+    .replace(/&[a-z]+;/gi, '')                                              // named entities
     .replace(/[&]+$/g, '')
     .replace(/\s+/g, ' ')
     .trim();
@@ -620,18 +632,45 @@ export function normalizeVehicle(vehicle) {
     }
   }
 
-  // Handle Ford "Chassis Cab" → extract F-series number and convert to Super Duty
-  if (normMake === 'Ford' && finalModel.toLowerCase() === 'chassis cab') {
+  // Handle Ford "Chassis Cab" and commercial stake body / dump upfits in model name
+  // e.g. "Cab F-350 W/ 12' Stake Body", "W/ 12' Stake Body Dump XL", "Chassis Cab"
+  if (normMake === 'Ford' && (
+    finalModel.toLowerCase() === 'chassis cab' ||
+    /stake\s+body/i.test(finalModel) ||
+    /stake\s+bed/i.test(finalModel) ||
+    /\bdump\b/i.test(finalModel) ||
+    /^cab\s+f-?\d{3}/i.test(finalModel)
+  )) {
     const seriesMatch = (rawTrim || '').match(/(F-?\d{3})/i)
       || (rawModel || '').match(/(F-?\d{3})/i)
       || (((vehicle.vehicle_url || vehicle.vehicleUrl || '').match(/(F-?\d{3})/i)));
-    if (seriesMatch) {
-      const series = seriesMatch[1].toUpperCase().replace(/^F-?(\d)/, 'F-$1');
-      finalModel = `${series} Super Duty`;
-      rawTrim = (rawTrim || '')
+    const series = seriesMatch ? seriesMatch[1].toUpperCase().replace(/^F-?(\d)/, 'F-$1') : 'F-350';
+    finalModel = `${series} Super Duty`;
+
+    if (!rawTrim || rawTrim.toLowerCase() === 'null') {
+      rawTrim = rawModel
+        .replace(/^cab\s+f-?\d{3}\s*/i, '')
+        .replace(/^w\/\s*/i, '')
+        .replace(/^with\s*/i, '')
         .replace(new RegExp(`F-?${series.replace('F-', '')}\\s*`, 'i'), '')
         .trim();
       if (!rawTrim) rawTrim = 'Chassis Cab';
+    }
+  }
+
+  // Handle Ford E-Series Cutaway / Box Van upfits in model name
+  // e.g. "W/ 14' Box Van E-450 Drw", "14' Dry Box Van E-350 Srw"
+  if (normMake === 'Ford' && (
+    /box\s+van/i.test(finalModel) ||
+    /dry\s+box/i.test(finalModel) ||
+    /e-\d{3}/i.test(finalModel)
+  )) {
+    finalModel = 'E-Series';
+    if (!rawTrim || rawTrim.toLowerCase() === 'null') {
+      rawTrim = rawModel
+        .replace(/^w\/\s*/i, '')
+        .replace(/^with\s*/i, '')
+        .trim();
     }
   }
 
