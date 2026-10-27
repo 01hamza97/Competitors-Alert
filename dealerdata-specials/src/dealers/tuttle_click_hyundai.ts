@@ -115,8 +115,8 @@ export class TuttleClickHyundaiScraper implements DealerSpecialsScraper {
                 snapshotDate: new Date().toISOString().split('T')[0]
               });
 
-              // Run native OCR to extract real dealer pricing from flyer
-              const ocrText = SpecialsParser.ocrImage(downloaded.localPath);
+              // Run cross-platform OCR to extract real dealer pricing from flyer
+              const ocrText = await SpecialsParser.ocrImageAsync(downloaded.localPath);
               if (ocrText) {
                 const parsed = SpecialsParser.parseFlyerOcr(
                   ocrText,

@@ -191,7 +191,7 @@ export class SpecialsParser {
   }
 
   /**
-   * Fast native OCR on a flyer image file
+   * Fast native OCR on a flyer image file (Apple Vision on macOS)
    */
   static ocrImage(imagePath: string): string {
     const ocrBin = path.resolve(__dirname, '../../bin/ocr');
@@ -208,6 +208,32 @@ export class SpecialsParser {
         .filter(Boolean)
         .join(' ');
     } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Cross-platform OCR: uses native Apple Vision on macOS, and tesseract.js on Linux / Windows
+   */
+  static async ocrImageAsync(imagePath: string): Promise<string> {
+    if (process.platform === 'darwin') {
+      const nativeResult = this.ocrImage(imagePath);
+      if (nativeResult && nativeResult.length > 5) return nativeResult;
+    }
+
+    try {
+      // Lazy load tesseract.js so it only initializes when needed on Linux
+      const { createWorker } = require('tesseract.js');
+      const worker = await createWorker('eng');
+      const ret = await worker.recognize(imagePath);
+      await worker.terminate();
+      return (ret?.data?.text || '')
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter(Boolean)
+        .join(' ');
+    } catch (err: any) {
+      console.warn(`[OCR] Cross-platform OCR notice: ${err.message}`);
       return '';
     }
   }
