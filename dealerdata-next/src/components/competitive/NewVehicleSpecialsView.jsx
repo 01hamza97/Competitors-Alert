@@ -42,6 +42,94 @@ function DollarAmount({ value }) {
   return trimmed;
 }
 
+function cleanSpecialModelAndTrim(r) {
+  if (!r) return r;
+  let make = r.make || '';
+  let model = (r.model || '').trim();
+  let trim = (r.trim || '').trim();
+  const title = r.title || '';
+  const fullText = `${title} ${model} ${trim}`;
+
+  // 1. Strip promo / pricing noise from trim
+  trim = trim
+    .replace(/\s*(?:[.,;:]|\$|for\s+[\$0-9]|mo\s+for|months\s+valid|lease\s+for|\/mo|valid\s+through|valid\s+throug|open\s+details|details\s+and\s+disclaimers).*$/i, '')
+    .trim();
+
+  // 2. Strip promo / pricing noise from model
+  model = model
+    .replace(/\s*(?:[.,;:]|\$|for\s+[\$0-9]|mo\s+for|months\s+valid|lease\s+for|\/mo|valid\s+through|valid\s+throug|open\s+details|details\s+and\s+disclaimers).*$/i, '')
+    .replace(/^202[3-7]\s+/i, '')
+    .replace(new RegExp('^' + make + '\\s+', 'i'), '')
+    .trim();
+
+  // 3. Known compound model/trim fixes
+  if (model.toLowerCase() === 'bronco big' && (!trim || trim.toLowerCase() === 'bend')) {
+    model = 'Bronco';
+    trim = 'Big Bend';
+  } else if (model.toLowerCase().startsWith('explorer active')) {
+    model = 'Explorer';
+    trim = 'Active';
+  } else if (model.toLowerCase() === 'expedition max active') {
+    model = 'Expedition MAX';
+    trim = 'Active';
+  }
+
+  // 4. Ford canonical model extraction if fullText contains it
+  if (make.toLowerCase() === 'ford') {
+    if (/bronco\s*sport/i.test(model) || /bronco\s*sport/i.test(fullText)) {
+      model = 'Bronco Sport';
+      if (/big\s*bend/i.test(fullText)) trim = 'Big Bend';
+      else if (/outer\s*banks/i.test(fullText)) trim = 'Outer Banks';
+      else if (/badlands/i.test(fullText)) trim = 'Badlands';
+    } else if (/^bronco/i.test(model)) {
+      model = 'Bronco';
+      if (/big\s*bend/i.test(fullText)) trim = 'Big Bend';
+      else if (/outer\s*banks/i.test(fullText)) trim = 'Outer Banks';
+      else if (/badlands/i.test(fullText)) trim = 'Badlands';
+      else if (/raptor/i.test(fullText)) trim = 'Raptor';
+      else if (/heritage/i.test(fullText)) trim = 'Heritage Edition';
+    } else if (/^explorer/i.test(model)) {
+      model = 'Explorer';
+      if (/active/i.test(fullText)) trim = 'Active';
+      else if (/st-line/i.test(fullText)) trim = 'ST-Line';
+      else if (/\bst\b/i.test(fullText)) trim = 'ST';
+      else if (/platinum/i.test(fullText)) trim = 'Platinum';
+    } else if (/^expedition\s*max/i.test(model) || /expedition\s*max/i.test(fullText)) {
+      model = 'Expedition MAX';
+      if (/active/i.test(fullText)) trim = 'Active';
+    } else if (/^expedition/i.test(model)) {
+      model = 'Expedition';
+    } else if (/^f-?150/i.test(model)) {
+      model = 'F-150';
+    } else if (/^f-?250/i.test(model)) {
+      model = 'F-250 Super Duty';
+    } else if (/^f-?350/i.test(model)) {
+      model = 'F-350 Super Duty';
+    } else if (/^maverick/i.test(model)) {
+      model = 'Maverick';
+    } else if (/^mustang/i.test(model)) {
+      model = 'Mustang';
+    }
+  }
+
+  let specialType = r.special_type || r.offer_type || 'lease';
+  if (r.monthly_payment != null && r.monthly_payment > 0) {
+    if (/\b(?:lease|leasing)\b/i.test(fullText) || !specialType) {
+      specialType = 'lease';
+    }
+  } else if (r.apr != null && r.apr > 0) {
+    specialType = 'apr';
+  }
+
+  return {
+    ...r,
+    model: model || r.model,
+    trim: trim || null,
+    special_type: specialType,
+    offer_type: specialType,
+  };
+}
+
 function OfferCard({ s }) {
   const [tooltip, setTooltip] = useState(false);
   const ref = useRef(null);
@@ -49,46 +137,62 @@ function OfferCard({ s }) {
   const type = rawType.toLowerCase();
 
   const isLease = type.includes('lease');
-  const isApr = type.includes('apr') || type.includes('finance') || type.includes('financing');
-  const isDiscount = type.includes('discount') || type.includes('cash') || type.includes('msrp') || type.includes('purchase');
+  const hasApr = (s.apr != null && s.apr > 0) || type === 'apr';
+  const hasMonthlyPayment = (s.monthly_payment != null && s.monthly_payment > 0) || isLease;
 
-  const badgeStyle = getBadgeStyle(rawType);
+  const badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease ? 'lease' : rawType);
+  const badgeLabel = hasApr && !hasMonthlyPayment ? 'APR' : isLease ? 'LEASE' : rawType.toUpperCase();
+
+  const CardWrapper = s.special_url ? 'a' : 'div';
+  const wrapperProps = s.special_url
+    ? {
+        href: s.special_url,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+      }
+    : {};
+
+  const monthlyVal = s.monthly_payment ? Math.round(s.monthly_payment) : s.offer_details;
+  const aprRate = s.apr != null ? s.apr : s.offer_details;
 
   return (
-    <div
+    <CardWrapper
+      {...wrapperProps}
       ref={ref}
-      className="relative bg-white border border-gray-300 rounded-lg p-2.5 text-xs shadow-sm hover:border-gray-400 transition-colors"
+      className="block relative bg-white border border-gray-300 rounded-lg p-3 text-xs shadow-sm hover:border-blue-400 hover:shadow-md transition-all cursor-pointer no-underline text-inherit group"
       onMouseEnter={() => setTooltip(true)}
       onMouseLeave={() => setTooltip(false)}
     >
-      <div className="flex items-center justify-between gap-1 mb-1.5">
-        {rawType && (
-          <span className={`inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${badgeStyle}`}>
-            {rawType}
+      <div className="flex items-center justify-between gap-1 mb-1">
+        {badgeLabel && (
+          <span className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${badgeStyle}`}>
+            {badgeLabel}
           </span>
         )}
+        {/* Preserved in DOM for data integrity, hidden visually per user requirement */}
         {s.trim && (
-          <span className="text-[10px] text-gray-500 font-medium truncate max-w-[110px]" title={s.trim}>
+          <span className="hidden text-[10px] text-gray-500 font-medium truncate max-w-[110px]" title={s.trim}>
             {s.trim}
           </span>
         )}
       </div>
 
+      {/* Preserved in DOM for data integrity, hidden visually per user requirement */}
       {s.title && (
-        <p className="text-xs font-semibold text-gray-900 leading-snug mb-1.5 line-clamp-2" title={s.title}>
+        <p className="hidden text-xs font-semibold text-gray-900 leading-snug mb-1 line-clamp-2" title={s.title}>
           {s.title}
         </p>
       )}
 
-      {isLease && (
+      {hasMonthlyPayment && (
         <>
-          {s.offer_details && (
-            <p className="text-xl font-extrabold text-gray-900 leading-tight">
-              <DollarAmount value={s.offer_details} />
+          {monthlyVal && (
+            <p className="text-xl font-extrabold text-gray-900 leading-tight mt-1">
+              <DollarAmount value={monthlyVal} />
             </p>
           )}
           {s.term && (
-            <p className="text-sm font-semibold text-gray-500 mt-0.5">{s.term} months</p>
+            <p className="text-sm font-semibold text-gray-500 mt-1">{s.term} months</p>
           )}
           {s.down_payment != null && (
             <p className="text-sm font-semibold text-gray-500">${Number(s.down_payment).toLocaleString()} down</p>
@@ -96,18 +200,18 @@ function OfferCard({ s }) {
         </>
       )}
 
-      {isApr && !isLease && (
+      {hasApr && !hasMonthlyPayment && (
         <>
-          <div className="flex items-baseline gap-0.5">
-            {s.offer_details && (
+          <div className="flex items-baseline gap-0.5 mt-1">
+            {aprRate && (
               <>
-                <span className="text-xl font-extrabold text-gray-900 leading-tight">{s.offer_details}</span>
+                <span className="text-xl font-extrabold text-gray-900 leading-tight">{aprRate}</span>
                 <sup className="text-xs font-bold text-gray-700 -top-1">%</sup>
               </>
             )}
           </div>
           {s.term && (
-            <p className="text-sm font-semibold text-gray-500 mt-0.5">{s.term} months</p>
+            <p className="text-sm font-semibold text-gray-500 mt-1">{s.term} months</p>
           )}
           {s.down_payment != null && (
             <p className="text-sm font-semibold text-gray-500">${Number(s.down_payment).toLocaleString()} down</p>
@@ -115,45 +219,33 @@ function OfferCard({ s }) {
         </>
       )}
 
-      {isDiscount && !isLease && !isApr && (
+      {!hasMonthlyPayment && !hasApr && (
         <>
           {s.offer_details && (
-            <p className="text-xl font-extrabold text-gray-900 leading-tight"><DollarAmount value={s.offer_details} /></p>
+            <p className="text-xl font-extrabold text-gray-900 leading-tight mt-1">
+              {String(s.offer_details).includes('%') ? (
+                s.offer_details
+              ) : Number(s.offer_details) > 0 ? (
+                <DollarAmount value={s.offer_details} />
+              ) : (
+                s.offer_details
+              )}
+            </p>
           )}
-        </>
-      )}
-
-      {!isLease && !isApr && !isDiscount && (
-        <>
-          {s.offer_details && (
-            <p className="text-xl font-extrabold text-gray-900 leading-tight">{s.offer_details}</p>
-          )}
-          {s.term && <p className="text-sm font-semibold text-gray-500 mt-0.5">{s.term} months</p>}
+          {s.term && <p className="text-sm font-semibold text-gray-500 mt-1">{s.term} months</p>}
           {s.down_payment != null && (
             <p className="text-sm font-semibold text-gray-500">${Number(s.down_payment).toLocaleString()} down</p>
           )}
         </>
-      )}
-
-      {s.special_url && (
-        <div className="mt-1.5 pt-1 border-t border-gray-100 flex items-center justify-between">
-          <a
-            href={s.special_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] text-blue-600 hover:text-blue-800 font-medium"
-          >
-            View Special <ExternalLink size={10} />
-          </a>
-        </div>
       )}
 
       {tooltip && (s.disclaimer || s.title || s.offer_details) && (
         <div className="absolute z-50 left-0 top-full mt-1 w-80 bg-slate-800 text-white text-xs rounded-xl shadow-xl p-3 leading-relaxed pointer-events-none space-y-1.5">
           {s.title && <p className="font-semibold text-slate-100">{s.title}</p>}
           <div className="flex items-center gap-2">
-            {rawType && <p className={`font-bold ${badgeStyle} px-2 py-0.5 rounded-full inline-block`}>{rawType}</p>}
-            {s.offer_details && <span className="text-white font-bold"><DollarAmount value={s.offer_details} /></span>}
+            {badgeLabel && <p className={`font-bold ${badgeStyle} px-2 py-0.5 rounded-full inline-block`}>{badgeLabel}</p>}
+            {hasMonthlyPayment && monthlyVal && <span className="text-white font-bold"><DollarAmount value={monthlyVal} /></span>}
+            {hasApr && !hasMonthlyPayment && aprRate && <span className="text-white font-bold">{aprRate}%</span>}
           </div>
           {s.term && <p className="text-slate-300">{s.term} months</p>}
           {s.down_payment != null && <p className="text-slate-300">${Number(s.down_payment).toLocaleString()} down</p>}
@@ -162,7 +254,7 @@ function OfferCard({ s }) {
           )}
         </div>
       )}
-    </div>
+    </CardWrapper>
   );
 }
 
@@ -212,7 +304,15 @@ export default function NewVehicleSpecialsView({ store }) {
     }).then(r => r.data),
   });
 
-  const rows = result?.data || [];
+  const rawRows = result?.data || [];
+  const rows = useMemo(() => {
+    return rawRows
+      .filter(r => {
+        const m = (r.model || '').toLowerCase();
+        return !m.includes('details and disclaimers') && !m.includes('open details modal');
+      })
+      .map(cleanSpecialModelAndTrim);
+  }, [rawRows]);
   const availableDates = result?.available_dates || [];
   const activeDate = result?.snapshot_date;
 

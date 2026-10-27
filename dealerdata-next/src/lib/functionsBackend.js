@@ -804,41 +804,120 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
         orderBy: [{ make: 'asc' }, { model: 'asc' }],
       });
 
-      const data = rows.map(r => {
-        let offerDetails = '';
-        if (r.monthlyPayment != null && r.monthlyPayment > 0) {
-          offerDetails = `${Math.round(r.monthlyPayment)}`;
-        } else if (r.apr != null && r.apr > 0) {
-          offerDetails = `${r.apr}`;
-        } else if (r.msrp != null && r.msrp > 0) {
-          offerDetails = `${Math.round(r.msrp)}`;
-        }
+      const data = rows
+        .filter(r => {
+          const m = (r.model || '').toLowerCase();
+          return !m.includes('details and disclaimers') && !m.includes('open details modal');
+        })
+        .map(r => {
+          let offerDetails = '';
+          if (r.monthlyPayment != null && r.monthlyPayment > 0) {
+            offerDetails = `${Math.round(r.monthlyPayment)}`;
+          } else if (r.apr != null && r.apr > 0) {
+            offerDetails = `${r.apr}`;
+          } else if (r.msrp != null && r.msrp > 0) {
+            offerDetails = `${Math.round(r.msrp)}`;
+          }
 
-        return {
-          id: r.id,
-          dealer_id: r.dealerId,
-          offer_dealer_name: r.offerDealerName,
-          snapshot_date: r.snapshotDate,
-          year: r.year,
-          make: r.make,
-          model: r.model,
-          trim: r.trim,
-          special_type: r.specialType,
-          offer_type: r.specialType,
-          monthly_payment: r.monthlyPayment,
-          term_months: r.termMonths,
-          term: r.termMonths,
-          down_payment: r.downPayment,
-          apr: r.apr,
-          msrp: r.msrp,
-          offer_details: offerDetails,
-          title: r.title,
-          disclaimer: r.disclaimer,
-          expiration_date: r.expirationDate,
-          special_url: r.specialUrl,
-          image_url: r.imageUrl,
-        };
-      });
+          let make = r.make || '';
+          let model = (r.model || '').trim();
+          let trim = (r.trim || '').trim();
+          const title = r.title || '';
+          const fullText = `${title} ${model} ${trim}`;
+
+          // Strip promo noise from trim & model
+          trim = trim
+            .replace(/\s*(?:[.,;:]|\$|for\s+[\$0-9]|mo\s+for|months\s+valid|lease\s+for|\/mo|valid\s+through|valid\s+throug|open\s+details|details\s+and\s+disclaimers).*$/i, '')
+            .trim();
+
+          model = model
+            .replace(/\s*(?:[.,;:]|\$|for\s+[\$0-9]|mo\s+for|months\s+valid|lease\s+for|\/mo|valid\s+through|valid\s+throug|open\s+details|details\s+and\s+disclaimers).*$/i, '')
+            .replace(/^202[3-7]\s+/i, '')
+            .replace(new RegExp('^' + make + '\\s+', 'i'), '')
+            .trim();
+
+          if (model.toLowerCase() === 'bronco big' && (!trim || trim.toLowerCase() === 'bend')) {
+            model = 'Bronco';
+            trim = 'Big Bend';
+          } else if (model.toLowerCase().startsWith('explorer active')) {
+            model = 'Explorer';
+            trim = 'Active';
+          } else if (model.toLowerCase() === 'expedition max active') {
+            model = 'Expedition MAX';
+            trim = 'Active';
+          }
+
+          if (make.toLowerCase() === 'ford') {
+            if (/bronco\s*sport/i.test(model) || /bronco\s*sport/i.test(fullText)) {
+              model = 'Bronco Sport';
+              if (/big\s*bend/i.test(fullText)) trim = 'Big Bend';
+              else if (/outer\s*banks/i.test(fullText)) trim = 'Outer Banks';
+              else if (/badlands/i.test(fullText)) trim = 'Badlands';
+            } else if (/^bronco/i.test(model)) {
+              model = 'Bronco';
+              if (/big\s*bend/i.test(fullText)) trim = 'Big Bend';
+              else if (/outer\s*banks/i.test(fullText)) trim = 'Outer Banks';
+              else if (/badlands/i.test(fullText)) trim = 'Badlands';
+              else if (/raptor/i.test(fullText)) trim = 'Raptor';
+              else if (/heritage/i.test(fullText)) trim = 'Heritage Edition';
+            } else if (/^explorer/i.test(model)) {
+              model = 'Explorer';
+              if (/active/i.test(fullText)) trim = 'Active';
+              else if (/st-line/i.test(fullText)) trim = 'ST-Line';
+              else if (/\bst\b/i.test(fullText)) trim = 'ST';
+              else if (/platinum/i.test(fullText)) trim = 'Platinum';
+            } else if (/^expedition\s*max/i.test(model) || /expedition\s*max/i.test(fullText)) {
+              model = 'Expedition MAX';
+              if (/active/i.test(fullText)) trim = 'Active';
+            } else if (/^expedition/i.test(model)) {
+              model = 'Expedition';
+            } else if (/^f-?150/i.test(model)) {
+              model = 'F-150';
+            } else if (/^f-?250/i.test(model)) {
+              model = 'F-250 Super Duty';
+            } else if (/^f-?350/i.test(model)) {
+              model = 'F-350 Super Duty';
+            } else if (/^maverick/i.test(model)) {
+              model = 'Maverick';
+            } else if (/^mustang/i.test(model)) {
+              model = 'Mustang';
+            }
+          }
+
+          let specialType = r.specialType || 'lease';
+          if (r.monthlyPayment != null && r.monthlyPayment > 0) {
+            if (/\b(?:lease|leasing)\b/i.test(fullText) || !specialType) {
+              specialType = 'lease';
+            }
+          } else if (r.apr != null && r.apr > 0) {
+            specialType = 'apr';
+          }
+
+          return {
+            id: r.id,
+            dealer_id: r.dealerId,
+            offer_dealer_name: r.offerDealerName,
+            snapshot_date: r.snapshotDate,
+            year: r.year,
+            make: r.make,
+            model: model || r.model,
+            trim: trim || null,
+            special_type: specialType,
+            offer_type: specialType,
+            monthly_payment: r.monthlyPayment,
+            term_months: r.termMonths,
+            term: r.termMonths,
+            down_payment: r.downPayment,
+            apr: r.apr,
+            msrp: r.msrp,
+            offer_details: offerDetails,
+            title: r.title,
+            disclaimer: r.disclaimer,
+            expiration_date: r.expirationDate,
+            special_url: r.specialUrl,
+            image_url: r.imageUrl,
+          };
+        });
 
       // Also load and map staged visual flyer specials
       const stagedRows = await prisma.specialsStaging.findMany({
