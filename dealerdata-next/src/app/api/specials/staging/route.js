@@ -47,6 +47,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const statusParam = searchParams.get('status') || 'pending';
     const dealerId = searchParams.get('dealer_id');
+    const specialTypeParam = searchParams.get('special_type');
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10), 1), 100);
     const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10), 0);
 
@@ -56,6 +57,9 @@ export async function GET(request) {
     }
     if (dealerId) {
       where.dealerId = dealerId;
+    }
+    if (specialTypeParam) {
+      where.specialType = specialTypeParam;
     }
 
     const [totalCount, rows] = await Promise.all([

@@ -1,0 +1,285 @@
+{
+  "name": "DealerData - AI Text Specials Extraction",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "t1a1b1c1-1111-4444-8888-000000000001",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "t2a2b2c2-2222-4444-8888-000000000002",
+      "name": "Schedule: Every 1 Hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:3000/api/specials/staging",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "status",
+              "value": "pending"
+            },
+            {
+              "name": "special_type",
+              "value": "vehicle_text"
+            },
+            {
+              "name": "limit",
+              "value": "20"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "dealerdata_n8n_secret_2026"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "t3a3b3c3-3333-4444-8888-000000000003",
+      "name": "Fetch Pending Text Specials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "t4a4b4c4-4444-4444-8888-000000000004",
+      "name": "Has Pending Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unpack the items array into separate items\n// Ensure only items with actual rawText content are processed\nconst items = $json.items || [];\nreturn items\n  .filter(item => item && (item.rawText || item.title))\n  .map(item => ({\n    json: item\n  }));"
+      },
+      "id": "t5a5b5c5-5555-4444-8888-000000000005",
+      "name": "Split Items for Processing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env.OPENAI_API_KEY || 'your-openai-api-key-here' }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an expert automotive digital merchandising analyst. Extract vehicle lease, finance, or purchase specials from the promotional text.\\n\\nReturn ONLY a valid JSON object matching this schema without markdown code blocks:\\n{\\n  \\\"year\\\": 2026,\\n  \\\"make\\\": \\\"Hyundai\\\",\\n  \\\"model\\\": \\\"Elantra\\\",\\n  \\\"trim\\\": \\\"SE FWD\\\",\\n  \\\"special_type\\\": \\\"lease\\\",\\n  \\\"monthly_payment\\\": 189,\\n  \\\"term_months\\\": 36,\\n  \\\"down_payment\\\": 2999,\\n  \\\"apr\\\": null,\\n  \\\"msrp\\\": null,\\n  \\\"title\\\": \\\"Lease a 2026 Hyundai Elantra SE FWD for $189 a month\\\",\\n  \\\"disclaimer\\\": \\\"Full legal terms and expiration...\\\",\\n  \\\"expiration_date\\\": \\\"2026-10-31\\\"\\n}\\n\\nRules:\\n1. special_type must be: 'lease', 'finance', 'cash', or 'service'.\\n2. All numerical fields must be clean numbers without '$', '%', or commas.\\n3. If a field is not stated in the text, set it to null.\\n4. expiration_date must be in YYYY-MM-DD format if stated, else null.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Extract all special offer details from this promotional snippet:\\n\\nTitle: {{ $json.title || '' }}\\n\\nContent:\\n{{ $json.rawText || '' }}\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" },\n  \"max_tokens\": 600,\n  \"temperature\": 0.1\n}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "t6a6b6c6-6666-4444-8888-000000000006",
+      "name": "Text LLM Extractor (GPT-4o-mini)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and format AI response\nconst aiResponse = $json.choices?.[0]?.message?.content || '{}';\nlet parsed = {};\ntry {\n  parsed = JSON.parse(aiResponse);\n} catch (e) {\n  const jsonMatch = aiResponse.match(/\\{.*\\}/s);\n  if (jsonMatch) {\n    parsed = JSON.parse(jsonMatch[0]);\n  }\n}\n\n// Access the original item from 'Split Items for Processing'\nconst originalItem = $('Split Items for Processing').item.json;\n\nreturn {\n  json: {\n    staging_id: originalItem.id,\n    image_hash: originalItem.imageHash || null,\n    auto_approve: true,\n    raw_text: originalItem.rawText || '',\n    extracted_data: {\n      year: parsed.year || new Date().getFullYear(),\n      make: parsed.make || 'Hyundai',\n      model: parsed.model || 'Special Offer',\n      trim: parsed.trim || null,\n      special_type: parsed.special_type || 'lease',\n      monthly_payment: parsed.monthly_payment != null ? Number(parsed.monthly_payment) : null,\n      term_months: parsed.term_months != null ? Number(parsed.term_months) : null,\n      down_payment: parsed.down_payment != null ? Number(parsed.down_payment) : null,\n      apr: parsed.apr != null ? Number(parsed.apr) : null,\n      msrp: parsed.msrp != null ? Number(parsed.msrp) : null,\n      title: parsed.title || originalItem.title || '',\n      disclaimer: parsed.disclaimer || originalItem.disclaimer || '',\n      expiration_date: parsed.expiration_date || null\n    }\n  }\n};"
+      },
+      "id": "t7a7b7c7-7777-4444-8888-000000000007",
+      "name": "Format AI Special JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/specials/ai-callback",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "dealerdata_n8n_secret_2026"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "t8a8b8c8-8888-4444-8888-000000000008",
+      "name": "Post Callback to DealerData API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1680,
+        340
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Text Specials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule: Every 1 Hour": {
+      "main": [
+        [
+          {
+            "node": "Fetch Pending Text Specials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Pending Text Specials": {
+      "main": [
+        [
+          {
+            "node": "Has Pending Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Pending Items?": {
+      "main": [
+        [
+          {
+            "node": "Split Items for Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Items for Processing": {
+      "main": [
+        [
+          {
+            "node": "Text LLM Extractor (GPT-4o-mini)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text LLM Extractor (GPT-4o-mini)": {
+      "main": [
+        [
+          {
+            "node": "Format AI Special JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format AI Special JSON": {
+      "main": [
+        [
+          {
+            "node": "Post Callback to DealerData API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

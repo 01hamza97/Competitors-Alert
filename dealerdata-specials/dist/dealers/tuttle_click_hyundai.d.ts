@@ -4,8 +4,6 @@ export declare class TuttleClickHyundaiScraper implements DealerSpecialsScraper 
     readonly name = "Tuttle Click Hyundai";
     readonly domain = "tuttleclickhyundai.com";
     readonly specialsUrls: string[];
-    private readonly apiEndpoint;
-    private readonly apiPayload;
     scrape(ctx: ScrapeContext): Promise<{
         htmlSpecials: CompetitorVehicleSpecial[];
         visualSpecials: StagedVisualSpecial[];

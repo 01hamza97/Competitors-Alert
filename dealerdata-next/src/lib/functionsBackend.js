@@ -767,7 +767,7 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
   if (process.env.DATABASE_URL) {
     try {
       const where = {};
-      const stagingWhere = { specialType: 'vehicle' };
+      const stagingWhere = { specialType: { in: ['vehicle', 'vehicle_text', 'vehicle_flyer'] } };
       if (competitor_names && competitor_names.length > 0) {
         where.OR = [
           { offerDealerName: { in: competitor_names } },
