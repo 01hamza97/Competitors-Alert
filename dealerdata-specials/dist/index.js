@@ -42,6 +42,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.scrapeSpecials = scrapeSpecials;
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+const axios_1 = __importDefault(require("axios"));
 const cheerio = __importStar(require("cheerio"));
 const url_1 = require("url");
 const browser_1 = require("./core/browser");
@@ -147,6 +148,23 @@ async function scrapeSpecials(options) {
         }
         if (allVisualSpecials.length > 0) {
             await db_1.DatabaseManager.syncSpecialsStaging(allVisualSpecials, dealerId, dealerName);
+            if (process.env.N8N_WEBHOOK_URL) {
+                try {
+                    console.log(`[N8N] Notifying N8N webhook of ${allVisualSpecials.length} staged visual specials...`);
+                    await axios_1.default.post(process.env.N8N_WEBHOOK_URL, {
+                        event: 'specials_staged',
+                        dealerId,
+                        dealerName,
+                        count: allVisualSpecials.length,
+                        manifestPath,
+                        timestamp: new Date().toISOString()
+                    }, { timeout: 10000 });
+                    console.log(`[N8N] Webhook notification delivered.`);
+                }
+                catch (webhookErr) {
+                    console.warn(`[N8N] Webhook notification notice: ${webhookErr.message}`);
+                }
+            }
         }
     }
     const durationMs = Date.now() - startTime;

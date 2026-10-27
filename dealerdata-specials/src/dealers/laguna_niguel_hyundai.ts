@@ -157,7 +157,14 @@ export class LagunaNiguelHyundaiScraper implements DealerSpecialsScraper {
           clientDealerName: dealerName,
           specialType: 'vehicle_flyer',
           title: fullText || `${dealerName} Special Flyer`,
-          details: ctaLink,
+          details: JSON.stringify({
+            imageUrl: imgSrc,
+            destinationUrl: ctaLink,
+            pageUrl: targetUrl,
+            localImagePath: downloadedInfo.localPath,
+            imageHash: downloadedInfo.imageHash,
+            title: fullText || `${dealerName} Special Flyer`
+          }),
           status: 'pending',
           imageHash: downloadedInfo.imageHash,
           imageUrl: imgSrc,

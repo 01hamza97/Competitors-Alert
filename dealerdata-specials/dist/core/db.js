@@ -9,16 +9,21 @@ class DatabaseManager {
     static pool = null;
     static getPool() {
         if (!DatabaseManager.pool) {
-            DatabaseManager.pool = promise_1.default.createPool({
-                host: process.env.DB_HOST || 'localhost',
-                user: process.env.DB_USER || 'root',
-                password: process.env.DB_PASSWORD || '1254879863',
-                database: process.env.DB_NAME || 'dealerdata-2',
-                port: parseInt(process.env.DB_PORT || '3306', 10),
-                waitForConnections: true,
-                connectionLimit: 10,
-                queueLimit: 0
-            });
+            if (process.env.DATABASE_URL) {
+                DatabaseManager.pool = promise_1.default.createPool(process.env.DATABASE_URL);
+            }
+            else {
+                DatabaseManager.pool = promise_1.default.createPool({
+                    host: process.env.DB_HOST || 'localhost',
+                    user: process.env.DB_USER || 'root',
+                    password: process.env.DB_PASSWORD || '',
+                    database: process.env.DB_NAME || 'dealerdata',
+                    port: parseInt(process.env.DB_PORT || '3306', 10),
+                    waitForConnections: true,
+                    connectionLimit: 10,
+                    queueLimit: 0
+                });
+            }
         }
         return DatabaseManager.pool;
     }
@@ -187,6 +192,35 @@ class DatabaseManager {
           domain = VALUES(domain),
           updated_at = NOW()
       `;
+            // Ensure details column is always a well-formed JSON string containing imageUrl
+            let detailsJson = '';
+            try {
+                if (typeof item.details === 'string' && item.details.trim().startsWith('{')) {
+                    const parsed = JSON.parse(item.details);
+                    if (!parsed.imageUrl && item.imageUrl) {
+                        parsed.imageUrl = item.imageUrl;
+                    }
+                    detailsJson = JSON.stringify(parsed);
+                }
+                else {
+                    detailsJson = JSON.stringify({
+                        imageUrl: item.imageUrl || (typeof item.details === 'string' && item.details.match(/\.(jpg|jpeg|png|webp)/i) ? item.details : null),
+                        destinationUrl: typeof item.details === 'string' ? item.details : item.pageUrl,
+                        pageUrl: item.pageUrl,
+                        localImagePath: item.localImagePath,
+                        imageHash: item.imageHash,
+                        title: item.title
+                    });
+                }
+            }
+            catch {
+                detailsJson = JSON.stringify({
+                    imageUrl: item.imageUrl || null,
+                    destinationUrl: item.pageUrl,
+                    pageUrl: item.pageUrl,
+                    imageHash: item.imageHash
+                });
+            }
             try {
                 await pool.execute(query, [
                     id,
@@ -196,7 +230,7 @@ class DatabaseManager {
                     item.snapshotDate || snapshotDate,
                     item.specialType || 'vehicle',
                     item.title || 'Vehicle Special Flyer',
-                    item.details || item.imageUrl || null,
+                    detailsJson,
                     item.status || 'pending',
                     item.rawText || null,
                     item.extractedJson ? JSON.stringify(item.extractedJson) : null,

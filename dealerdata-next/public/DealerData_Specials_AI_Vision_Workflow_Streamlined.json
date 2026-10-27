@@ -103,7 +103,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Unpack the items array into separate n8n items\n// n8n will automatically execute all subsequent nodes for each item!\nconst items = $json.items || [];\nif (!items.length) {\n  return [];\n}\n\nreturn items.map(item => ({\n  json: item\n}));"
+        "jsCode": "// Unpack the items array into separate n8n items\n// Ensure only items with a valid image URL are sent to the Vision model\nconst items = $json.items || [];\nreturn items\n  .filter(item => item && item.imageUrl && item.imageUrl.startsWith('http'))\n  .map(item => ({\n    json: item\n  }));"
       },
       "id": "e5f5c6e4-5678-9abc-def0-123456789abc",
       "name": "Split Items for Processing",

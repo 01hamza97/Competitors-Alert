@@ -109,7 +109,14 @@ export class GardenGroveHyundaiScraper implements DealerSpecialsScraper {
                 clientDealerName: dealerName,
                 specialType: 'vehicle_flyer',
                 title: promo.title || `${dealerName} Vehicle Flyer`,
-                details: clickUrl,
+                details: JSON.stringify({
+                  imageUrl: flyerUrl,
+                  destinationUrl: clickUrl,
+                  pageUrl: targetUrl,
+                  localImagePath: downloaded.localPath,
+                  imageHash: downloaded.imageHash,
+                  title: promo.title || `${dealerName} Vehicle Flyer`
+                }),
                 status: 'pending',
                 imageHash: downloaded.imageHash,
                 imageUrl: flyerUrl,

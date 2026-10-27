@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
+import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { URL } from 'url';
 import { BrowserManager } from './core/browser';
@@ -136,6 +137,23 @@ export async function scrapeSpecials(options: ScrapeSpecialsOptions): Promise<Sp
     }
     if (allVisualSpecials.length > 0) {
       await DatabaseManager.syncSpecialsStaging(allVisualSpecials, dealerId, dealerName);
+
+      if (process.env.N8N_WEBHOOK_URL) {
+        try {
+          console.log(`[N8N] Notifying N8N webhook of ${allVisualSpecials.length} staged visual specials...`);
+          await axios.post(process.env.N8N_WEBHOOK_URL, {
+            event: 'specials_staged',
+            dealerId,
+            dealerName,
+            count: allVisualSpecials.length,
+            manifestPath,
+            timestamp: new Date().toISOString()
+          }, { timeout: 10000 });
+          console.log(`[N8N] Webhook notification delivered.`);
+        } catch (webhookErr: any) {
+          console.warn(`[N8N] Webhook notification notice: ${webhookErr.message}`);
+        }
+      }
     }
   }
 

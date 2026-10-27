@@ -72,7 +72,11 @@ export async function GET(request) {
       let parsedDetails = {};
       try {
         if (r.details) {
-          parsedDetails = JSON.parse(r.details);
+          if (r.details.trim().startsWith('{')) {
+            parsedDetails = JSON.parse(r.details);
+          } else if (r.details.match(/\.(jpg|jpeg|png|webp)(\?|$)/i) || r.details.includes('pictures.dealer.com') || r.details.includes('/assets/')) {
+            parsedDetails = { imageUrl: r.details };
+          }
         }
       } catch {}
 
@@ -82,6 +86,14 @@ export async function GET(request) {
           parsedExtracted = JSON.parse(r.extractedJson);
         }
       } catch {}
+
+      const resolvedImageUrl =
+        parsedDetails.imageUrl ||
+        parsedDetails.image_url ||
+        parsedDetails.publicUrl ||
+        parsedDetails.url ||
+        r.rawText?.match(/https?:\/\/[^\s"]+\.(?:jpg|jpeg|png|webp)[^\s"]*/i)?.[0] ||
+        (r.details?.match(/https?:\/\/[^\s"]+\.(?:jpg|jpeg|png|webp)[^\s"]*/i)?.[0] || null);
 
       return {
         id: r.id,
@@ -94,7 +106,7 @@ export async function GET(request) {
         status: r.status,
         domain: r.domain,
         imageHash: r.imageHash,
-        imageUrl: parsedDetails.imageUrl || r.rawText?.match(/https?:\/\/[^\s"]+/)?.[0] || null,
+        imageUrl: resolvedImageUrl,
         localImagePath: parsedDetails.localImagePath || null,
         altText: parsedDetails.altText || null,
         disclaimer: parsedDetails.disclaimer || null,
