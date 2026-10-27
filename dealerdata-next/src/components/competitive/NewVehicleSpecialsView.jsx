@@ -137,7 +137,7 @@ function OfferCard({ s }) {
   const type = rawType.toLowerCase();
 
   const isLease = type.includes('lease');
-  const hasApr = (s.apr != null && s.apr > 0) || type === 'apr';
+  const hasApr = (s.apr != null && s.apr >= 0) || type === 'apr';
   const hasMonthlyPayment = (s.monthly_payment != null && s.monthly_payment > 0) || isLease;
 
   const badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease ? 'lease' : rawType);
@@ -203,7 +203,7 @@ function OfferCard({ s }) {
       {hasApr && !hasMonthlyPayment && (
         <>
           <div className="flex items-baseline gap-0.5 mt-1">
-            {aprRate && (
+            {aprRate != null && aprRate !== '' && (
               <>
                 <span className="text-xl font-extrabold text-gray-900 leading-tight">{aprRate}</span>
                 <sup className="text-xs font-bold text-gray-700 -top-1">%</sup>

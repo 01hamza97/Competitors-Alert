@@ -813,7 +813,7 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
           let offerDetails = '';
           if (r.monthlyPayment != null && r.monthlyPayment > 0) {
             offerDetails = `${Math.round(r.monthlyPayment)}`;
-          } else if (r.apr != null && r.apr > 0) {
+          } else if (r.apr != null && r.apr >= 0) {
             offerDetails = `${r.apr}`;
           } else if (r.msrp != null && r.msrp > 0) {
             offerDetails = `${Math.round(r.msrp)}`;
@@ -889,7 +889,7 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             if (/\b(?:lease|leasing)\b/i.test(fullText) || !specialType) {
               specialType = 'lease';
             }
-          } else if (r.apr != null && r.apr > 0) {
+          } else if (r.apr != null && r.apr >= 0) {
             specialType = 'apr';
           }
 
