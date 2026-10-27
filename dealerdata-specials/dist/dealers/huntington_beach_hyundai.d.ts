@@ -4,8 +4,6 @@ export declare class HuntingtonBeachHyundaiScraper implements DealerSpecialsScra
     readonly name = "Hunting Ton Beach Hyundai";
     readonly domain = "huntingtonbeachhyundai.com";
     readonly specialsUrls: string[];
-    private readonly apiEndpoint;
-    private readonly apiPayload;
     scrape(ctx: ScrapeContext): Promise<{
         htmlSpecials: CompetitorVehicleSpecial[];
         visualSpecials: StagedVisualSpecial[];

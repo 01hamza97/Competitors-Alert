@@ -4,8 +4,6 @@ export declare class HyundaiOfAnaheimScraper implements DealerSpecialsScraper {
     readonly name = "Hyundai Of Anaheim";
     readonly domain = "hyundaiofanaheim.com";
     readonly specialsUrls: string[];
-    private readonly apiEndpoint;
-    private readonly apiPayload;
     scrape(ctx: ScrapeContext): Promise<{
         htmlSpecials: CompetitorVehicleSpecial[];
         visualSpecials: StagedVisualSpecial[];
