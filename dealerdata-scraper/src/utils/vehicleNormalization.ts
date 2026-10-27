@@ -325,9 +325,11 @@ const CANONICAL_MODELS_BY_MAKE: Record<string, Record<string, string>> = {
     'transit': 'Transit',
     'transit commercial': 'Transit',
     'transit na': 'Transit',
+    'transit van': 'Transit',
     'transit-150': 'Transit',
     'transit-250': 'Transit',
     'transit-350': 'Transit',
+    'chassis cab': 'Chassis Cab',
     'e-series': 'E-Series',
     'e-series cutaway': 'E-Series',
     'e-transit': 'E-Transit',
@@ -378,9 +380,17 @@ const CANONICAL_MODELS_BY_MAKE: Record<string, Record<string, string>> = {
   },
 };
 
+/**
+ * Strip trademark marks — literal ® / ™, the mojibake "Â®" / "Â™" some feeds
+ * produce, and the HTML entities others embed (e.g. "Lariat&#174;").
+ * Also decodes common HTML entities and collapses whitespace.
+ */
 export function cleanRawString(str?: string | null): string {
   if (!str || typeof str !== 'string') return '';
   return str
+    .replace(/Â\s?[®™]/g, '')                                              // mojibake Â® / Â™
+    .replace(/&#0*174;|&#x0*ae;|&reg;|&#8482;|&#x2122;|&trade;/gi, '')     // HTML entities for ® / ™
+    .replace(/[®™]/g, '')                                                   // literal Unicode ® / ™
     .replace(/&amp;/gi, '&')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&quot;/gi, '"')
@@ -472,6 +482,69 @@ export function normalizeTrim(rawTrim?: string | null, model?: string | null): s
     .join(' ');
 }
 
+// Models that include "Hybrid", "Electric", "Plug-In" etc. as part of the canonical model name.
+// When the vehicle URL contains one of these keywords and the current model is the base version,
+// we upgrade the model to include the powertrain suffix.
+const HYBRID_MODEL_VARIANTS: Record<string, Record<string, string>> = {
+  Hyundai: {
+    'Santa Fe': 'Santa Fe Hybrid',
+    'Tucson': 'Tucson Hybrid',
+    'Palisade': 'Palisade Hybrid',
+    'Elantra': 'Elantra Hybrid',
+    'Sonata': 'Sonata Hybrid',
+    'Kona': 'Kona Electric',
+    'Ioniq': 'Ioniq Hybrid',
+  },
+  Kia: {
+    'Sportage': 'Sportage Hybrid',
+    'Sorento': 'Sorento Hybrid',
+    'Telluride': 'Telluride Hybrid',
+    'Carnival': 'Carnival Hybrid',
+    'Niro': 'Niro EV',
+  },
+  Toyota: {
+    'RAV4': 'RAV4 Hybrid',
+    'Camry': 'Camry Hybrid',
+    'Highlander': 'Highlander Hybrid',
+    'Venza': 'Venza Hybrid',
+    'Corolla Cross': 'Corolla Cross Hybrid',
+    'Sienna': 'Sienna Hybrid',
+    'Crown': 'Crown Hybrid',
+    'Sequoia': 'Sequoia Hybrid',
+    'Tundra': 'Tundra Hybrid',
+    'Tacoma': 'Tacoma Hybrid',
+    'Grand Highlander': 'Grand Highlander Hybrid',
+  },
+  Honda: {
+    'CR-V': 'CR-V Hybrid',
+    'Accord': 'Accord Hybrid',
+    'Civic': 'Civic Hybrid',
+  },
+  Ford: {
+    'F-150': 'F-150 Lightning',
+    'Escape': 'Escape Hybrid',
+    'Maverick': 'Maverick Hybrid',
+  },
+  Chrysler: {
+    'Pacifica': 'Pacifica Hybrid',
+  },
+};
+
+// Known canonical model prefixes per make, ordered longest first so that
+// "Bronco Sport" matches before "Bronco", "Grand Cherokee L" before "Grand Cherokee", etc.
+const MODEL_PREFIXES_BY_MAKE: Record<string, string[]> = {};
+function getModelPrefixes(make: string): string[] {
+  if (MODEL_PREFIXES_BY_MAKE[make]) return MODEL_PREFIXES_BY_MAKE[make];
+  const models = CANONICAL_MODELS_BY_MAKE[make];
+  if (!models) return [];
+  // Collect unique canonical model names
+  const canonical = new Set(Object.values(models));
+  // Sort longest first so "Bronco Sport" matches before "Bronco"
+  const sorted = [...canonical].sort((a, b) => b.length - a.length);
+  MODEL_PREFIXES_BY_MAKE[make] = sorted;
+  return sorted;
+}
+
 export function normalizeVehicle<T extends { make?: string; model?: string; trim?: string }>(vehicle: T): T {
   if (!vehicle) return vehicle;
   const normMake = normalizeMake(vehicle.make);
@@ -493,32 +566,68 @@ export function normalizeVehicle<T extends { make?: string; model?: string; trim
   if (normMake && CANONICAL_MODELS_BY_MAKE[normMake]) {
     const makeModels = CANONICAL_MODELS_BY_MAKE[normMake];
     if (makeModels[lowerModel]) {
+      // Exact dictionary match
       finalModel = makeModels[lowerModel];
       const regex = new RegExp(`^${finalModel}\\s+`, 'i');
       if (regex.test(rawModel)) {
         extractedTrim = rawModel.replace(regex, '').trim();
       }
+    } else {
+      // Prefix-based fallback: "Bronco Badlands" → model "Bronco", trim "Badlands"
+      // "Explorer Platinum" → model "Explorer", trim "Platinum"
+      const prefixes = getModelPrefixes(normMake);
+      for (const prefix of prefixes) {
+        const prefixLower = prefix.toLowerCase();
+        if (lowerModel === prefixLower) {
+          finalModel = prefix;
+          break;
+        }
+        if (lowerModel.startsWith(prefixLower + ' ')) {
+          finalModel = prefix;
+          extractedTrim = rawModel.slice(prefix.length).trim();
+          break;
+        }
+      }
     }
   }
 
-  // Handle Ford "Super Duty" series when model is "Super" / "Super Duty" / "F-202 Super Duty" and trim or vehicle_url specifies F-250 / F-350 / F-450 / F-550 / F-600
+  // Handle Ford "Super Duty" series when model is "Super" / "Super Duty" / "F-xxx Super Duty"
+  // and trim or vehicle_url specifies F-250 / F-350 / F-450 / F-550 / F-600
   if (normMake === 'Ford' && (finalModel.toLowerCase().includes('super duty') || finalModel.toLowerCase() === 'super' || finalModel.toLowerCase() === 'f-series sd')) {
-    const dutyMatch = (rawTrim || '').match(/(F-\d{3}|F\d{3})/i) || (((vehicle as any).vehicle_url || '').match(/Super[+-]Duty[+-](F[-+ ]?\d{3})/i));
+    // cleanRawString already strips ® so F-250® becomes F-250
+    const dutyMatch = (rawTrim || '').match(/(F-?\d{3})/i)
+      || (rawModel || '').match(/(F-?\d{3})/i)
+      || (((vehicle as any).vehicle_url || (vehicle as any).vehicleUrl || '').match(/Super[+-]Duty[+-](F[-+ ]?\d{3})/i));
     if (dutyMatch) {
-      const series = dutyMatch[1].toUpperCase().replace(/^F[-+ ]?(\d)/, 'F-$1');
+      const series = dutyMatch[1].toUpperCase().replace(/^F-?(\d)/, 'F-$1');
       finalModel = `${series} Super Duty`;
       rawTrim = (rawTrim || '')
-        .replace(new RegExp(`Duty\\s*${dutyMatch[1]}`, 'i'), '')
-        .replace(new RegExp(`${dutyMatch[1]}\\s*`, 'i'), '')
+        .replace(/Duty\s*/i, '')
+        .replace(new RegExp(`F-?${series.replace('F-', '')}\s*`, 'i'), '')
         .trim();
     }
   }
 
+  // Handle Ford "Chassis Cab" → extract F-series number and convert to Super Duty
+  if (normMake === 'Ford' && finalModel.toLowerCase() === 'chassis cab') {
+    const seriesMatch = (rawTrim || '').match(/(F-?\d{3})/i)
+      || (rawModel || '').match(/(F-?\d{3})/i)
+      || (((vehicle as any).vehicle_url || (vehicle as any).vehicleUrl || '').match(/(F-?\d{3})/i));
+    if (seriesMatch) {
+      const series = seriesMatch[1].toUpperCase().replace(/^F-?(\d)/, 'F-$1');
+      finalModel = `${series} Super Duty`;
+      rawTrim = (rawTrim || '')
+        .replace(new RegExp(`F-?${series.replace('F-', '')}\s*`, 'i'), '')
+        .trim();
+      if (!rawTrim) rawTrim = 'Chassis Cab';
+    }
+  }
+
   // Handle Ford Transit Van variations in model name
-  if (normMake === 'Ford' && (lowerModel.startsWith('transit van') || lowerModel === 'transit na')) {
+  if (normMake === 'Ford' && (lowerModel.startsWith('transit van') || lowerModel.startsWith('transit commercial') || lowerModel === 'transit na')) {
     finalModel = 'Transit';
-    if (!rawTrim && lowerModel.startsWith('transit van')) {
-      rawTrim = rawModel.replace(/^transit\s+van\s*/i, '').trim();
+    if (!rawTrim && (lowerModel.startsWith('transit van') || lowerModel.startsWith('transit commercial'))) {
+      rawTrim = rawModel.replace(/^transit\s+(van|commercial)\s*/i, '').trim();
     }
   }
 
@@ -556,8 +665,44 @@ export function normalizeVehicle<T extends { make?: string; model?: string; trim
     rawTrim = extractedTrim;
   }
 
-  const normModel = normalizeModel(normMake, finalModel);
+  let normModel = normalizeModel(normMake, finalModel);
   const normTrim = normalizeTrim(rawTrim, normModel);
+
+  // ── Hybrid / EV detection from vehicle URL ──
+  // When the platform puts the model as "Santa Fe" but the URL says "/Santa-Fe-Hybrid/",
+  // upgrade the model. Only for models we know have canonical Hybrid/EV variants.
+  const vehicleUrl = ((vehicle as any).vehicleUrl || (vehicle as any).vehicle_url || '') as string;
+  if (normMake && vehicleUrl && HYBRID_MODEL_VARIANTS[normMake]) {
+    const hybridTarget = HYBRID_MODEL_VARIANTS[normMake][normModel];
+    if (hybridTarget && normModel !== hybridTarget) {
+      // Check if the URL slug contains the hybrid/electric keyword for this model
+      const urlLower = vehicleUrl.toLowerCase();
+      const modelSlug = normModel.toLowerCase().replace(/\s+/g, '-');
+      // Look for patterns like "Santa-Fe-Hybrid", "santa_fe_hybrid", "santa+fe+hybrid"
+      const hybridSuffix = hybridTarget.replace(normModel, '').trim().toLowerCase();
+      const slugPatterns = [
+        `${modelSlug}-${hybridSuffix.replace(/\s+/g, '-')}`,
+        `${modelSlug}_${hybridSuffix.replace(/\s+/g, '_')}`,
+        `${modelSlug}+${hybridSuffix.replace(/\s+/g, '+')}`,
+        `${modelSlug}%20${hybridSuffix.replace(/\s+/g, '%20')}`,
+      ];
+      if (slugPatterns.some(p => urlLower.includes(p))) {
+        normModel = hybridTarget;
+      }
+    }
+  }
+
+  // Also check if "hybrid" / "plug-in" / "electric" / "phev" appear in the trim
+  // and the current model has a known variant — promote from trim to model.
+  if (normMake && HYBRID_MODEL_VARIANTS[normMake] && normTrim) {
+    const trimLower = normTrim.toLowerCase();
+    const hybridTarget = HYBRID_MODEL_VARIANTS[normMake][normModel];
+    if (hybridTarget && normModel !== hybridTarget) {
+      if (/\bhybrid\b/i.test(trimLower) || /\bplug-?in\b/i.test(trimLower) || /\bphev\b/i.test(trimLower) || /\belectric\b/i.test(trimLower)) {
+        normModel = hybridTarget;
+      }
+    }
+  }
 
   return {
     ...vehicle,

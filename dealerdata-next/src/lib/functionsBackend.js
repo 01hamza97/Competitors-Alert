@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import { launchScraperJob } from '@/lib/scraperRunner';
-import { normalizeMake, normalizeModel, normalizeTrim } from '@/lib/vehicleNormalization';
+import { normalizeMake, normalizeModel, normalizeTrim, normalizeVehicle } from '@/lib/vehicleNormalization';
 
 function getSbHeaders() {
   const key = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -690,9 +690,15 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
         const displayName = nameMap[r.dealerId] || nameMap[cleanDealerKey] || cleanDealerKey;
         nameMap[cleanDealerKey] = displayName;
 
-        const normMake = normalizeMake(r.make) || r.make || 'Unknown';
-        const normModel = normalizeModel(normMake, r.model) || r.model || 'Unknown';
-        const normTrim = normalizeTrim(r.trim, normModel) || r.trim || undefined;
+        const normalized = normalizeVehicle({
+          make: r.make,
+          model: r.model,
+          trim: r.trim,
+          vehicleUrl: r.vehicleUrl || r.vehicle_url,
+        });
+        const normMake = normalized.make || 'Unknown';
+        const normModel = normalized.model || 'Unknown';
+        const normTrim = normalized.trim || undefined;
 
         return {
           id: r.id,

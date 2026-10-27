@@ -10,6 +10,7 @@
     "crawl": "ts-node src/cli.ts",
     "crawl:sitemap": "ts-node src/cli.ts --no-api",
     "crawl:auto": "ts-node src/cli.ts",
+    "fix:inventory": "ts-node src/scripts/fixInventory.ts",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts"
   },
   "keywords": [
