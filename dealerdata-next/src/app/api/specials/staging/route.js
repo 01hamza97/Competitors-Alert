@@ -87,13 +87,35 @@ export async function GET(request) {
         }
       } catch {}
 
-      const resolvedImageUrl =
+      let resolvedImageUrl =
         parsedDetails.imageUrl ||
         parsedDetails.image_url ||
         parsedDetails.publicUrl ||
         parsedDetails.url ||
         r.rawText?.match(/https?:\/\/[^\s"]+\.(?:jpg|jpeg|png|webp)[^\s"]*/i)?.[0] ||
         (r.details?.match(/https?:\/\/[^\s"]+\.(?:jpg|jpeg|png|webp)[^\s"]*/i)?.[0] || null);
+
+      // Auto-fallback: If imageUrl is still missing (e.g. legacy staging row), check manifest on disk
+      if (!resolvedImageUrl && r.dealerId && r.snapshotDate) {
+        try {
+          const fs = require('fs');
+          const path = require('path');
+          const possiblePaths = [
+            path.resolve(process.cwd(), '../dealerdata-specials/crawled_specials', r.dealerId, r.snapshotDate, 'manifest.json'),
+            path.resolve(process.cwd(), 'crawled_specials', r.dealerId, r.snapshotDate, 'manifest.json'),
+          ];
+          for (const mPath of possiblePaths) {
+            if (fs.existsSync(mPath)) {
+              const mData = JSON.parse(fs.readFileSync(mPath, 'utf8'));
+              const match = (mData.specials || []).find((s) => s.id === r.id);
+              if (match && match.imageUrl) {
+                resolvedImageUrl = match.imageUrl;
+                break;
+              }
+            }
+          }
+        } catch (_) {}
+      }
 
       return {
         id: r.id,
