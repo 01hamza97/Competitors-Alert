@@ -45,8 +45,68 @@ export class DatabaseManager {
       console.warn(`[Database] Notice clearing old specials for ${cleanDealerId}: ${e.message}`);
     }
 
-    for (let i = 0; i < specials.length; i++) {
-      const item = specials[i];
+    // Deduplicate specials per model & special_type to eliminate duplicate cards
+    const deduplicatedMap = new Map<string, CompetitorVehicleSpecial>();
+    for (const item of specials) {
+      if (item.specialUrl) {
+        item.specialUrl = item.specialUrl
+          .replace(/^https?:\/\/gardengrovehyundai\.com/i, 'https://www.gardengrovehyundai.com')
+          .replace(/^https?:\/\/huntingtonbeachhyundai\.com/i, 'https://www.huntingtonbeachhyundai.com')
+          .replace(/^https?:\/\/tuttleclickhyundai\.com/i, 'https://www.tuttleclickhyundai.com')
+          .replace(/^https?:\/\/hyundaiofanaheim\.com/i, 'https://www.hyundaiofanaheim.com')
+          .replace(/^https?:\/\/lagunaniguelhyundai\.com/i, 'https://www.lagunaniguelhyundai.com');
+      }
+
+      const key = `${(item.model || '').toLowerCase().trim()}||${(item.specialType || 'lease').toLowerCase()}`;
+      const existing = deduplicatedMap.get(key);
+      if (!existing) {
+        deduplicatedMap.set(key, item);
+        continue;
+      }
+
+      // If one is from custom flyer and other is generic factory incentive, prefer flyer
+      const itemIsFlyer = (item.id || '').includes('flyer');
+      const existingIsFlyer = (existing.id || '').includes('flyer');
+      if (itemIsFlyer && !existingIsFlyer) {
+        deduplicatedMap.set(key, item);
+        continue;
+      }
+      if (!itemIsFlyer && existingIsFlyer) {
+        continue;
+      }
+
+      // If one has price/rate and other does not, prefer the one with price/rate
+      const itemHasVal = item.monthlyPayment != null || item.apr != null;
+      const existingHasVal = existing.monthlyPayment != null || existing.apr != null;
+      if (itemHasVal && !existingHasVal) {
+        deduplicatedMap.set(key, item);
+        continue;
+      }
+      if (!itemHasVal && existingHasVal) {
+        continue;
+      }
+
+      // If both have discounts (cash), keep the larger discount
+      if (item.specialType === 'cash' && item.monthlyPayment && existing.monthlyPayment) {
+        if (item.monthlyPayment > existing.monthlyPayment) {
+          deduplicatedMap.set(key, item);
+        }
+        continue;
+      }
+
+      // If both have lease payments, keep the lower (more aggressive) lease payment
+      if (item.specialType === 'lease' && item.monthlyPayment && existing.monthlyPayment) {
+        if (item.monthlyPayment < existing.monthlyPayment) {
+          deduplicatedMap.set(key, item);
+        }
+        continue;
+      }
+    }
+
+    const cleanSpecials = Array.from(deduplicatedMap.values());
+
+    for (let i = 0; i < cleanSpecials.length; i++) {
+      const item = cleanSpecials[i];
       const modelSafe = (item.model || 'model').replace(/[^a-zA-Z0-9]/g, '_');
       const id = item.id || `spc_${cleanDealerId}_${item.year}_${item.make}_${modelSafe}_${Date.now()}_${i}`;
 

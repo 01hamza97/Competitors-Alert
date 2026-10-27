@@ -143,10 +143,20 @@ function OfferCard({ s }) {
   const badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease ? 'lease' : rawType);
   const badgeLabel = hasApr && !hasMonthlyPayment ? 'APR' : isLease ? 'LEASE' : rawType.toUpperCase();
 
-  const CardWrapper = s.special_url ? 'a' : 'div';
-  const wrapperProps = s.special_url
+  let cleanUrl = s.special_url;
+  if (cleanUrl) {
+    cleanUrl = cleanUrl
+      .replace(/^https?:\/\/gardengrovehyundai\.com/i, 'https://www.gardengrovehyundai.com')
+      .replace(/^https?:\/\/huntingtonbeachhyundai\.com/i, 'https://www.huntingtonbeachhyundai.com')
+      .replace(/^https?:\/\/tuttleclickhyundai\.com/i, 'https://www.tuttleclickhyundai.com')
+      .replace(/^https?:\/\/hyundaiofanaheim\.com/i, 'https://www.hyundaiofanaheim.com')
+      .replace(/^https?:\/\/lagunaniguelhyundai\.com/i, 'https://www.lagunaniguelhyundai.com');
+  }
+
+  const CardWrapper = cleanUrl ? 'a' : 'div';
+  const wrapperProps = cleanUrl
     ? {
-        href: s.special_url,
+        href: cleanUrl,
         target: '_blank',
         rel: 'noopener noreferrer',
       }

@@ -913,8 +913,12 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             offer_details: offerDetails,
             title: r.title,
             disclaimer: r.disclaimer,
-            expiration_date: r.expirationDate,
-            special_url: r.specialUrl,
+            special_url: (r.specialUrl || '')
+              .replace(/^https?:\/\/gardengrovehyundai\.com/i, 'https://www.gardengrovehyundai.com')
+              .replace(/^https?:\/\/huntingtonbeachhyundai\.com/i, 'https://www.huntingtonbeachhyundai.com')
+              .replace(/^https?:\/\/tuttleclickhyundai\.com/i, 'https://www.tuttleclickhyundai.com')
+              .replace(/^https?:\/\/hyundaiofanaheim\.com/i, 'https://www.hyundaiofanaheim.com')
+              .replace(/^https?:\/\/lagunaniguelhyundai\.com/i, 'https://www.lagunaniguelhyundai.com'),
             image_url: r.imageUrl,
           };
         });
