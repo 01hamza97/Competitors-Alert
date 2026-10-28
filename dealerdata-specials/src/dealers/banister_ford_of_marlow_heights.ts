@@ -29,6 +29,17 @@ export class BanisterFordOfMarlowHeightsScraper implements DealerSpecialsScraper
     const page = ctx.page;
     logger.log(`Executing DOM specials extraction for ${dealerName} (${dealerId})...`);
 
+    // Ensure flags.type=Special is present for Banister Ford specials
+    let normalizedTargetUrl = targetUrl;
+    try {
+      const u = new URL(targetUrl);
+      if (u.searchParams.get('flags.type') !== 'Special') {
+        u.searchParams.set('flags.type', 'Special');
+        normalizedTargetUrl = u.toString();
+        logger.log(`Normalized specials URL to include flags.type=Special: ${normalizedTargetUrl}`);
+      }
+    } catch {}
+
     const visualSpecials: StagedVisualSpecial[] = [];
     const seenVins = new Set<string>();
     const today = new Date().toISOString().split('T')[0];
@@ -39,10 +50,10 @@ export class BanisterFordOfMarlowHeightsScraper implements DealerSpecialsScraper
 
     while (currentPage <= maxPages && currentPage <= 10) {
       const pageUrl = currentPage === 1 
-        ? targetUrl 
-        : `${targetUrl.split('?')[0]}?${new URLSearchParams({ ...Object.fromEntries(new URL(targetUrl).searchParams), pg: String(currentPage) }).toString()}`;
+        ? normalizedTargetUrl 
+        : `${normalizedTargetUrl.split('?')[0]}?${new URLSearchParams({ ...Object.fromEntries(new URL(normalizedTargetUrl).searchParams), pg: String(currentPage) }).toString()}`;
 
-      if (currentPage > 1) {
+      if (currentPage > 1 || page.url() !== normalizedTargetUrl) {
         logger.log(`Navigating to page ${currentPage} of ${maxPages} (${pageUrl})...`);
         await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
       }
