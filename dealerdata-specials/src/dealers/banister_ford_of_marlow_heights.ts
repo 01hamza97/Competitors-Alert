@@ -58,10 +58,20 @@ export class BanisterFordOfMarlowHeightsScraper implements DealerSpecialsScraper
         await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
       }
 
-      // Wait for Algolia Hits to render
+      // Wait for real Algolia vehicle cards to hydrate (not the static mustache template)
       try {
-        await page.waitForSelector('.ais-Hits-item, .listing[data-vehicle-vin]', { timeout: 15000 }).catch(() => {});
-        await page.waitForTimeout(1200);
+        logger.log(`Page ${currentPage}: waiting for real vehicle cards to hydrate...`);
+        await page.waitForFunction(() => {
+          const cards = Array.from(document.querySelectorAll('.listing[data-vehicle-vin]'));
+          return cards.some(c => {
+            const v = c.getAttribute('data-vehicle-vin') || '';
+            return v.length === 17 && !v.includes('{');
+          });
+        }, { timeout: 20000 }).catch(() => {});
+
+        // Ensure pagination wrapper is rendered
+        await page.waitForSelector('.ais-pagination-wrapper', { timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(1000);
 
         // Progressive scroll down to ensure cards and DealerLink photos hydrate
         await page.evaluate(async () => {
@@ -104,7 +114,9 @@ export class BanisterFordOfMarlowHeightsScraper implements DealerSpecialsScraper
 
     cards.each((i, el) => {
       const card = $(el);
-      const vin = card.attr('data-vehicle-vin') || `vin_${Date.now()}_${i}`;
+      const vin = (card.attr('data-vehicle-vin') || '').trim();
+      // Skip unhydrated static mustache templates
+      if (!vin || vin.includes('{') || vin.length < 10) return;
       if (seenVins.has(vin)) return;
       seenVins.add(vin);
 
