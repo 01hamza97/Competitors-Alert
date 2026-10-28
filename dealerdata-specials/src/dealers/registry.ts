@@ -5,6 +5,7 @@ import { LagunaNiguelHyundaiScraper } from './laguna_niguel_hyundai';
 import { HuntingtonBeachHyundaiScraper } from './huntington_beach_hyundai';
 import { GardenGroveHyundaiScraper } from './garden_grove_hyundai';
 import { HyundaiOfAnaheimScraper } from './hyundai_of_anaheim';
+import { WaldorfFordScraper } from './waldorf_ford';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -21,6 +22,7 @@ export class DealerRegistry {
     DealerRegistry.register(hoa);
     DealerRegistry.scrapers.set('hyundai_of_anaheim', hoa);
     DealerRegistry.scrapers.set('anaheim_hyundai', hoa);
+    DealerRegistry.register(new WaldorfFordScraper());
   }
 
   static register(scraper: DealerSpecialsScraper): void {
