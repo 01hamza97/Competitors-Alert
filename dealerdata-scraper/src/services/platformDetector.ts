@@ -328,10 +328,12 @@ export class PlatformDetector {
             const pn = 96;
             const seenVins = new Set<string>();
             let totalCount = 0;
+            let currentProxyConfig = proxyConfig;
+            let proxyFailed = false;
 
             while (page <= pageCap) {
               const cosmosUrl = `${apiUrl}&pt=${page}&pn=${pn}&displayCardsShown=${(page - 1) * pn}`;
-              let res;
+              let res: any;
               try {
                 res = await axios.get(cosmosUrl, {
                   headers: {
@@ -340,22 +342,38 @@ export class PlatformDetector {
                     Referer: matchedDealer.new_inventory_url || origin,
                     Origin: origin
                   },
-                  timeout: 15000,
-                  ...proxyConfig
+                  timeout: 30000,
+                  ...currentProxyConfig
                 });
               } catch (reqErr: any) {
-                if (proxyUrl && proxyUrl !== 'direct') {
-                  console.warn(`[DealerOn API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
-                  res = await axios.get(cosmosUrl, {
-                    headers: {
-                      'User-Agent':
-                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                      Referer: matchedDealer.new_inventory_url || origin,
-                      Origin: origin
-                    },
-                    timeout: 15000
-                  });
+                if (proxyUrl && proxyUrl !== 'direct' && !proxyFailed) {
+                  proxyFailed = true;
+                  currentProxyConfig = {};
+                  console.warn(`[DealerOn API] Request with proxy failed (${reqErr.message}). Falling back to direct connection...`);
+                  try {
+                    res = await axios.get(cosmosUrl, {
+                      headers: {
+                        'User-Agent':
+                          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                        Referer: matchedDealer.new_inventory_url || origin,
+                        Origin: origin
+                      },
+                      timeout: 30000
+                    });
+                  } catch (directErr: any) {
+                    console.warn(`[DealerOn API] Page ${page} direct request failed: ${directErr.message}`);
+                    if (listings.length > 0) {
+                      console.log(`[DealerOn API] Preserving ${listings.length} listings collected prior to failure.`);
+                      break;
+                    }
+                    throw directErr;
+                  }
                 } else {
+                  console.warn(`[DealerOn API] Page ${page} failed: ${reqErr.message}`);
+                  if (listings.length > 0) {
+                    console.log(`[DealerOn API] Preserving ${listings.length} listings collected prior to failure.`);
+                    break;
+                  }
                   throw reqErr;
                 }
               }
@@ -367,6 +385,7 @@ export class PlatformDetector {
                 const vc = c.VehicleCard;
                 if (!vc) continue;
                 const vin = (
+                  vc.VehicleVin ||
                   vc.VehicleImageCarouselModel?.Vin ||
                   vc.VehicleImageModel?.VehicleImageCarouselModel?.Vin ||
                   vc.VehicleImageModel?.Vin ||
@@ -440,6 +459,8 @@ export class PlatformDetector {
                 break;
               }
               page++;
+              // Small backoff to respect CDN rate limits
+              await new Promise((r) => setTimeout(r, 200));
             }
 
             if (listings.length > 0) {

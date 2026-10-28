@@ -415,49 +415,46 @@ export class ListingExtractor {
           if (stockMatch) stockNumber = stockMatch[1].replace(/vin.*$/i, '').trim();
         }
 
-        // 5. Inventory Type (New / Used / Certified)
-        if (!dvObj?.type) {
-          if (
-            cardClass.includes('used-vehicle') ||
-            cardClass.includes('used_vehicle') ||
-            cardClass.includes('pre-owned') ||
-            /^used\b/i.test(titleText)
-          ) {
-            inventoryType = 'Used';
-          } else if (
-            cardClass.includes('cpo-vehicle') ||
-            cardClass.includes('certified') ||
-            cardClass.includes('cpo') ||
-            /^certified\b/i.test(titleText)
-          ) {
-            inventoryType = 'Certified';
-          } else if (
-            cardClass.includes('new-vehicle') ||
-            /^new\b/i.test(titleText)
-          ) {
-            inventoryType = 'New';
-          } else {
-            const lowerCard = cardText.toLowerCase();
-            if (lowerCard.includes('certified pre-owned') || lowerCard.includes('certified used')) {
-              inventoryType = 'Certified';
-            } else if (lowerCard.includes('pre-owned') || lowerCard.includes('used vehicle')) {
-              inventoryType = 'Used';
-            }
-          }
-        }
-
-        // 6. Link / Vehicle URL
+        // 5. Link / Vehicle URL
         if (!link) {
           link = card.find('a[href]').attr('href') || '';
         }
         if (link && !link.startsWith('http')) {
           try {
             link = new URL(link, baseUrl).toString();
-          } catch {
-            link = baseUrl;
+          } catch {}
+        }
+
+        // 6. Inventory Type (New / Used / Certified)
+        const lowerUrl = (link || baseUrl).toLowerCase();
+        const isNewUrl = lowerUrl.includes('searchnew') || lowerUrl.includes('/new-') || lowerUrl.includes('type=new');
+        if (!dvObj?.type) {
+          if (
+            cardClass.includes('used-vehicle') ||
+            cardClass.includes('used_vehicle') ||
+            /^used\b/i.test(titleText) ||
+            lowerUrl.includes('/used-') ||
+            lowerUrl.includes('/used/')
+          ) {
+            inventoryType = 'Used';
+          } else if (
+            cardClass.includes('cpo-vehicle') ||
+            cardClass.includes('certified') ||
+            cardClass.includes('cpo') ||
+            /^certified\b/i.test(titleText) ||
+            lowerUrl.includes('/cpo-') ||
+            lowerUrl.includes('/certified-')
+          ) {
+            inventoryType = 'Certified';
+          } else if (
+            cardClass.includes('new-vehicle') ||
+            /^new\b/i.test(titleText) ||
+            isNewUrl
+          ) {
+            inventoryType = 'New';
+          } else {
+            inventoryType = 'New';
           }
-        } else if (!link) {
-          link = baseUrl;
         }
 
         // 7. Image URL
@@ -588,8 +585,14 @@ export class ListingExtractor {
         const bestMsrp = validPrice(item.msrp) || validPrice(existing.msrp) || undefined;
         const bestDiscount = (item.dealerDiscount && item.dealerDiscount > 0) ? item.dealerDiscount : existing.dealerDiscount;
 
+        const bestInventoryType =
+          existing.inventoryType === 'New' || item.inventoryType === 'New'
+            ? 'New'
+            : (existing.inventoryType === 'Certified' || item.inventoryType === 'Certified' ? 'Certified' : 'Used');
+
         map.set(item.vin, {
           ...existing,
+          inventoryType: bestInventoryType,
           listPrice: bestListPrice,
           msrp: bestMsrp,
           dealerDiscount: bestDiscount,
