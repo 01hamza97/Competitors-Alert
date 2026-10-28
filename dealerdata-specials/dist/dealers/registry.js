@@ -8,6 +8,7 @@ const huntington_beach_hyundai_1 = require("./huntington_beach_hyundai");
 const garden_grove_hyundai_1 = require("./garden_grove_hyundai");
 const hyundai_of_anaheim_1 = require("./hyundai_of_anaheim");
 const waldorf_ford_1 = require("./waldorf_ford");
+const world_of_ford_alexandria_1 = require("./world_of_ford_alexandria");
 class DealerRegistry {
     static scrapers = new Map();
     static {
@@ -23,6 +24,7 @@ class DealerRegistry {
         DealerRegistry.scrapers.set('hyundai_of_anaheim', hoa);
         DealerRegistry.scrapers.set('anaheim_hyundai', hoa);
         DealerRegistry.register(new waldorf_ford_1.WaldorfFordScraper());
+        DealerRegistry.register(new world_of_ford_alexandria_1.WorldOfFordAlexandriaScraper());
     }
     static register(scraper) {
         const cleanId = scraper.id.toLowerCase().replace(/^store_/, '');

@@ -43,6 +43,10 @@
               "value": "pending"
             },
             {
+              "name": "special_type",
+              "value": "vehicle_flyer"
+            },
+            {
               "name": "limit",
               "value": "10"
             }
