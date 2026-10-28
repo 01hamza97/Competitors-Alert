@@ -29,41 +29,67 @@ export class BanisterFordOfMarlowHeightsScraper implements DealerSpecialsScraper
     const page = ctx.page;
     logger.log(`Executing DOM specials extraction for ${dealerName} (${dealerId})...`);
 
-    // 2. Wait for Algolia Hits to render and scroll to trigger lazy loading of vehicle images
-    try {
-      await page.waitForSelector('.ais-Hits-item, .listing[data-vehicle-vin]', { timeout: 15000 }).catch(() => {});
-      await page.waitForTimeout(1500);
-
-      // Progressive scroll down to ensure all Algolia cards and DealerLink photos hydrate
-      await page.evaluate(async () => {
-        const distance = 500;
-        const delay = 120;
-        const totalHeight = document.body.scrollHeight;
-        let currentPosition = 0;
-
-        while (currentPosition < totalHeight) {
-          window.scrollBy(0, distance);
-          currentPosition += distance;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      });
-      await page.waitForTimeout(800);
-    } catch (scrollErr: any) {
-      logger.warn(`Notice while hydrating DOM/images: ${scrollErr.message}`);
-    }
-
-    // 3. Extract loaded DOM with Cheerio
-    const cheerio = await import('cheerio');
-    const hydratedHtml = await page.content();
-    const $ = cheerio.load(hydratedHtml);
-
     const visualSpecials: StagedVisualSpecial[] = [];
     const seenVins = new Set<string>();
     const today = new Date().toISOString().split('T')[0];
+    const cheerio = await import('cheerio');
 
-    // Target Algolia listing cards with vehicle data attributes
-    const cards = $('.ais-Hits-item .listing, .listing[data-vehicle-vin]');
-    logger.log(`Processing ${cards.length} promotional vehicle cards found in DOM...`);
+    let currentPage = 1;
+    let maxPages = 1;
+
+    while (currentPage <= maxPages && currentPage <= 10) {
+      const pageUrl = currentPage === 1 
+        ? targetUrl 
+        : `${targetUrl.split('?')[0]}?${new URLSearchParams({ ...Object.fromEntries(new URL(targetUrl).searchParams), pg: String(currentPage) }).toString()}`;
+
+      if (currentPage > 1) {
+        logger.log(`Navigating to page ${currentPage} of ${maxPages} (${pageUrl})...`);
+        await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+      }
+
+      // Wait for Algolia Hits to render
+      try {
+        await page.waitForSelector('.ais-Hits-item, .listing[data-vehicle-vin]', { timeout: 15000 }).catch(() => {});
+        await page.waitForTimeout(1200);
+
+        // Progressive scroll down to ensure cards and DealerLink photos hydrate
+        await page.evaluate(async () => {
+          const distance = 600;
+          const delay = 100;
+          const totalHeight = document.body.scrollHeight;
+          let currentPosition = 0;
+
+          while (currentPosition < totalHeight) {
+            window.scrollBy(0, distance);
+            currentPosition += distance;
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        });
+        await page.waitForTimeout(800);
+      } catch (scrollErr: any) {
+        logger.warn(`Notice while hydrating DOM/images on page ${currentPage}: ${scrollErr.message}`);
+      }
+
+      // Check total pages on first page
+      if (currentPage === 1) {
+        const detectedMaxPages = await page.evaluate(() => {
+          const text = document.querySelector('.ais-pagination-wrapper')?.textContent || '';
+          const match = text.match(/Page\s+\d+\s+of\s+(\d+)/i);
+          return match ? parseInt(match[1], 10) : 1;
+        });
+        maxPages = detectedMaxPages || 1;
+        logger.log(`Detected ${maxPages} total page(s) on Algolia inventory.`);
+      }
+
+      // Extract loaded DOM with Cheerio
+      const hydratedHtml = await page.content();
+      const $ = cheerio.load(hydratedHtml);
+      const cards = $('.ais-Hits-item .listing, .listing[data-vehicle-vin]');
+      logger.log(`Page ${currentPage}: processing ${cards.length} vehicle cards found in DOM...`);
+
+      if (cards.length === 0) {
+        break;
+      }
 
     cards.each((i, el) => {
       const card = $(el);
@@ -177,7 +203,10 @@ export class BanisterFordOfMarlowHeightsScraper implements DealerSpecialsScraper
       });
     });
 
-    logger.log(`Extracted ${visualSpecials.length} staged text-based specials ready for AI from ${dealerName}.`);
+      currentPage++;
+    }
+
+    logger.log(`Extracted a total of ${visualSpecials.length} staged text-based specials across all pages from ${dealerName}.`);
     return { htmlSpecials: [], visualSpecials };
   }
 }
