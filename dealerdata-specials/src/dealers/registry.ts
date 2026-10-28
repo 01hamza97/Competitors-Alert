@@ -8,6 +8,7 @@ import { HyundaiOfAnaheimScraper } from './hyundai_of_anaheim';
 import { WaldorfFordScraper } from './waldorf_ford';
 import { WorldOfFordAlexandriaScraper } from './world_of_ford_alexandria';
 import { BanisterFordOfMarlowHeightsScraper } from './banister_ford_of_marlow_heights';
+import { UpperMarlboroFordScraper } from './upper_marlboro_ford';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -27,6 +28,7 @@ export class DealerRegistry {
     DealerRegistry.register(new WaldorfFordScraper());
     DealerRegistry.register(new WorldOfFordAlexandriaScraper());
     DealerRegistry.register(new BanisterFordOfMarlowHeightsScraper());
+    DealerRegistry.register(new UpperMarlboroFordScraper());
   }
 
   static register(scraper: DealerSpecialsScraper): void {
