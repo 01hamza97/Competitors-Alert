@@ -56,7 +56,10 @@ function getAxiosProxyConfig(explicitUrl) {
     }
     try {
         new URL(proxyUrl);
+        // Allow self-signed / MITM certs from proxies like ZenRows
+        process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
         const agent = new https_proxy_agent_1.HttpsProxyAgent(proxyUrl);
+        agent.options = { ...(agent.options || {}), rejectUnauthorized: false };
         return {
             httpsAgent: agent,
             httpAgent: agent,

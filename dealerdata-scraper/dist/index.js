@@ -295,8 +295,24 @@ async function scrapeDealership(options) {
     // STEP 5: Deduplicate by VIN & Filter for New Inventory
     // -------------------------------------------------------------------------
     const deduplicated = listingExtractor_1.ListingExtractor.deduplicate(listings);
+    const isNewTarget = inventoryType === 'New' ||
+        parsedUrl.pathname.toLowerCase().includes('searchnew') ||
+        parsedUrl.pathname.toLowerCase().includes('/new-') ||
+        parsedUrl.search.toLowerCase().includes('type=new');
     const finalListings = inventoryType === 'New'
-        ? deduplicated.filter((item) => item.inventoryType === 'New')
+        ? deduplicated.filter((item) => {
+            if (item.inventoryType === 'New')
+                return true;
+            // If the target URL is explicitly a new inventory search page (e.g. searchnew.aspx),
+            // any listing found on this page that doesn't have an explicit Used title or /used- VDP is New.
+            const lowerUrl = (item.vehicleUrl || '').toLowerCase();
+            const isExplicitUsed = lowerUrl.includes('/used-') || lowerUrl.includes('/used/') || /^used\b/i.test(item.model || '');
+            if (isNewTarget && !isExplicitUsed) {
+                item.inventoryType = 'New';
+                return true;
+            }
+            return false;
+        })
         : deduplicated;
     const newListingsCount = finalListings.filter((i) => i.inventoryType === 'New').length;
     const usedListingsCount = finalListings.filter((i) => i.inventoryType !== 'New').length;

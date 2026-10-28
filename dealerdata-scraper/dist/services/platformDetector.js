@@ -166,30 +166,58 @@ class PlatformDetector {
                     // 1.A. Typesense Search API (Dealer Venom / Modern SPAs)
                     // -----------------------------------------------------------------
                     if (matchedDealer.platform === 'typesense' || apiUrl.includes('typesense')) {
-                        const typesenseKey = matchedDealer.api_key || 'eQUa8iq30l8Tu908Drz9WKqar6tCJGd4';
+                        let typesenseKey = matchedDealer.api_key;
+                        if (!typesenseKey && apiUrl.includes('x-typesense-api-key=')) {
+                            const match = apiUrl.match(/x-typesense-api-key=([^&]+)/);
+                            if (match)
+                                typesenseKey = match[1];
+                        }
+                        if (!typesenseKey)
+                            typesenseKey = 'eQUa8iq30l8Tu908Drz9WKqar6tCJGd4';
+                        let collectionName = matchedDealer.collection_name;
+                        if (!collectionName && apiUrl.includes('/collections/')) {
+                            const match = apiUrl.match(/\/collections\/([^/?]+)/);
+                            if (match)
+                                collectionName = match[1];
+                        }
+                        if (!collectionName)
+                            collectionName = 'vehicles-FOR27004';
+                        const isMultiSearch = apiUrl.includes('multi_search');
                         let page = 1;
                         const perPage = 250;
                         const seenVins = new Set();
                         let totalCount = 0;
                         while (page <= pageCap) {
+                            const multiSearchPayload = {
+                                searches: [
+                                    {
+                                        query_by: 'vin,stockNumber,lastEight,year,make,model,trim,body,features,engine,transmission,drivetrain,fuel,dealertag,exteriorColor,genericColor',
+                                        query_by_weights: '10,10,10,3,8,10,7,2,3,1,2,2,2,2,2,1',
+                                        text_match_type: 'max_weight',
+                                        drop_tokens_mode: 'both_sides:3',
+                                        drop_tokens_threshold: 1,
+                                        highlight_fields: 'none',
+                                        highlight_full_fields: 'none',
+                                        collection: collectionName,
+                                        q: '*',
+                                        facet_by: 'bed,body,cab,dealertag,drivetrain,exteriorHex,features,finalPriceRange,flags.type,fuel,make,mileage,model,mpgCityRange,mpgHwayRange,range,rangeSliderPrice,transmissionType,trim,yr',
+                                        filter_by: 'condition:New',
+                                        max_facet_values: 100000,
+                                        page,
+                                        per_page: perPage
+                                    }
+                                ]
+                            };
                             let res;
                             try {
-                                res = await axios_1.default.get(apiUrl, {
-                                    params: {
-                                        q: '*',
-                                        query_by: 'vin',
-                                        filter_by: 'condition:=New',
-                                        per_page: perPage,
-                                        page
-                                    },
-                                    headers: { 'x-typesense-api-key': typesenseKey },
-                                    timeout: 15000,
-                                    ...proxyConfig
-                                });
-                            }
-                            catch (reqErr) {
-                                if (proxyUrl && proxyUrl !== 'direct') {
-                                    console.warn(`[Typesense API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
+                                if (isMultiSearch) {
+                                    res = await axios_1.default.post(apiUrl, multiSearchPayload, {
+                                        headers: { 'Content-Type': 'application/json', 'x-typesense-api-key': typesenseKey },
+                                        timeout: 15000,
+                                        ...proxyConfig
+                                    });
+                                }
+                                else {
                                     res = await axios_1.default.get(apiUrl, {
                                         params: {
                                             q: '*',
@@ -199,15 +227,41 @@ class PlatformDetector {
                                             page
                                         },
                                         headers: { 'x-typesense-api-key': typesenseKey },
-                                        timeout: 15000
+                                        timeout: 15000,
+                                        ...proxyConfig
                                     });
+                                }
+                            }
+                            catch (reqErr) {
+                                if (proxyUrl && proxyUrl !== 'direct') {
+                                    console.warn(`[Typesense API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
+                                    if (isMultiSearch) {
+                                        res = await axios_1.default.post(apiUrl, multiSearchPayload, {
+                                            headers: { 'Content-Type': 'application/json', 'x-typesense-api-key': typesenseKey },
+                                            timeout: 15000
+                                        });
+                                    }
+                                    else {
+                                        res = await axios_1.default.get(apiUrl, {
+                                            params: {
+                                                q: '*',
+                                                query_by: 'vin',
+                                                filter_by: 'condition:=New',
+                                                per_page: perPage,
+                                                page
+                                            },
+                                            headers: { 'x-typesense-api-key': typesenseKey },
+                                            timeout: 15000
+                                        });
+                                    }
                                 }
                                 else {
                                     throw reqErr;
                                 }
                             }
-                            totalCount = res.data?.found || 0;
-                            const hits = res.data?.hits || [];
+                            const resData = isMultiSearch ? (res.data?.results?.[0] || {}) : res.data;
+                            totalCount = resData?.found || 0;
+                            const hits = resData?.hits || [];
                             for (const hit of hits) {
                                 const doc = hit.document;
                                 if (!doc?.vin)
@@ -270,6 +324,8 @@ class PlatformDetector {
                         const pn = 96;
                         const seenVins = new Set();
                         let totalCount = 0;
+                        let currentProxyConfig = proxyConfig;
+                        let proxyFailed = false;
                         while (page <= pageCap) {
                             const cosmosUrl = `${apiUrl}&pt=${page}&pn=${pn}&displayCardsShown=${(page - 1) * pn}`;
                             let res;
@@ -280,23 +336,40 @@ class PlatformDetector {
                                         Referer: matchedDealer.new_inventory_url || origin,
                                         Origin: origin
                                     },
-                                    timeout: 15000,
-                                    ...proxyConfig
+                                    timeout: 30000,
+                                    ...currentProxyConfig
                                 });
                             }
                             catch (reqErr) {
-                                if (proxyUrl && proxyUrl !== 'direct') {
-                                    console.warn(`[DealerOn API] Request with proxy failed (${reqErr.message}). Retrying directly...`);
-                                    res = await axios_1.default.get(cosmosUrl, {
-                                        headers: {
-                                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                                            Referer: matchedDealer.new_inventory_url || origin,
-                                            Origin: origin
-                                        },
-                                        timeout: 15000
-                                    });
+                                if (proxyUrl && proxyUrl !== 'direct' && !proxyFailed) {
+                                    proxyFailed = true;
+                                    currentProxyConfig = {};
+                                    console.warn(`[DealerOn API] Request with proxy failed (${reqErr.message}). Falling back to direct connection...`);
+                                    try {
+                                        res = await axios_1.default.get(cosmosUrl, {
+                                            headers: {
+                                                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                                                Referer: matchedDealer.new_inventory_url || origin,
+                                                Origin: origin
+                                            },
+                                            timeout: 30000
+                                        });
+                                    }
+                                    catch (directErr) {
+                                        console.warn(`[DealerOn API] Page ${page} direct request failed: ${directErr.message}`);
+                                        if (listings.length > 0) {
+                                            console.log(`[DealerOn API] Preserving ${listings.length} listings collected prior to failure.`);
+                                            break;
+                                        }
+                                        throw directErr;
+                                    }
                                 }
                                 else {
+                                    console.warn(`[DealerOn API] Page ${page} failed: ${reqErr.message}`);
+                                    if (listings.length > 0) {
+                                        console.log(`[DealerOn API] Preserving ${listings.length} listings collected prior to failure.`);
+                                        break;
+                                    }
                                     throw reqErr;
                                 }
                             }
@@ -306,7 +379,8 @@ class PlatformDetector {
                                 const vc = c.VehicleCard;
                                 if (!vc)
                                     continue;
-                                const vin = (vc.VehicleImageCarouselModel?.Vin ||
+                                const vin = (vc.VehicleVin ||
+                                    vc.VehicleImageCarouselModel?.Vin ||
                                     vc.VehicleImageModel?.VehicleImageCarouselModel?.Vin ||
                                     vc.VehicleImageModel?.Vin ||
                                     vc.Vin ||
@@ -378,6 +452,8 @@ class PlatformDetector {
                                 break;
                             }
                             page++;
+                            // Small backoff to respect CDN rate limits
+                            await new Promise((r) => setTimeout(r, 200));
                         }
                         if (listings.length > 0) {
                             return { hasDirectApi: true, endpoint: apiUrl, listings };

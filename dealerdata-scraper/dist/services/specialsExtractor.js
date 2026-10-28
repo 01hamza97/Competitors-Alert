@@ -771,11 +771,22 @@ class SpecialsExtractor {
                     const trimRegex = new RegExp(`\\b${safeMake}\\s+${safeModel}\\s+([^,\\-\\n\\|#]+)`, 'i');
                     const tMatch = rawTitle.match(trimRegex);
                     if (tMatch && tMatch[1]) {
-                        const candidate = tMatch[1].replace(/\b(4x4|4x2|AWD|FWD|RWD|New|Used|Certified|VIN:.*|Stock:.*)\b/gi, '').trim();
+                        const candidate = tMatch[1]
+                            .replace(/\s*(?:[.,;:]|\$|for\s+[\$0-9]|mo\s+for|months\s+valid|lease\s+for|\/mo|valid\s+through|valid\s+throug|open\s+details).*$/i, '')
+                            .replace(/\b(4x4|4x2|AWD|FWD|RWD|New|Used|Certified|VIN:.*|Stock:.*)\b/gi, '')
+                            .trim();
                         if (candidate && candidate.length < 50) {
                             trim = candidate;
                         }
                     }
+                }
+                if (model.toLowerCase() === 'bronco big' && (!trim || trim.toLowerCase() === 'bend')) {
+                    model = 'Bronco';
+                    trim = 'Big Bend';
+                }
+                else if (model.toLowerCase().startsWith('explorer active')) {
+                    model = 'Explorer';
+                    trim = 'Active';
                 }
                 let finalCardImageUrl = cardImageUrl;
                 if (!finalCardImageUrl && make !== 'Unknown' && model !== 'Unknown') {

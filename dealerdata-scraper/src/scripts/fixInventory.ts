@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import mysql from 'mysql2/promise';
+import axios from 'axios';
 import dotenv from 'dotenv';
 import { normalizeVehicle } from '../utils/vehicleNormalization';
 import { VehicleListing } from '../types';
@@ -13,7 +14,9 @@ dotenv.config();
  * Can fix:
  * 1. Existing JSON files in the output/ directory
  * 2. Existing records in MySQL database (competitor_vehicle_inventory)
+ * 3. Existing records in Supabase database (competitor_inventory_pricing)
  */
+
 async function fixJsonOutputFiles(outputDir: string) {
   if (!fs.existsSync(outputDir)) {
     console.log(`Directory ${outputDir} does not exist. Skipping JSON file fix.`);
@@ -21,7 +24,7 @@ async function fixJsonOutputFiles(outputDir: string) {
   }
 
   const files = fs.readdirSync(outputDir).filter(f => f.endsWith('.json') && f.startsWith('listings_'));
-  console.log(`\n📂 Found ${files.length} JSON listing files in ${outputDir}`);
+  console.log(`\n📂 [1/3 JSON Files] Found ${files.length} JSON listing files in ${outputDir}`);
 
   let totalFilesUpdated = 0;
   let totalVehiclesFixed = 0;
@@ -56,7 +59,7 @@ async function fixJsonOutputFiles(outputDir: string) {
     }
   }
 
-  console.log(`\n🎉 JSON Fix Complete: ${totalVehiclesFixed} vehicle listings fixed across ${totalFilesUpdated} files.`);
+  console.log(`🎉 JSON Fix Complete: ${totalVehiclesFixed} vehicle listings fixed across ${totalFilesUpdated} files.`);
 }
 
 async function fixMySQLDatabase() {
@@ -66,12 +69,12 @@ async function fixMySQLDatabase() {
   const database = process.env.DB_NAME || 'dealerdata';
   const port = parseInt(process.env.DB_PORT || '3306', 10);
 
-  console.log(`\n🔌 Connecting to MySQL database ${database} at ${host}:${port}...`);
+  console.log(`\n🔌 [2/3 MySQL Database] Connecting to MySQL database ${database} at ${host}:${port}...`);
 
   let connection: mysql.Connection | null = null;
   try {
     connection = await mysql.createConnection({ host, user, password, database, port });
-    console.log(`Connected successfully to database.`);
+    console.log(`Connected successfully to MySQL.`);
 
     const [rows] = await connection.query(
       'SELECT id, make, model, trim, vehicle_url FROM competitor_vehicle_inventory'
@@ -101,11 +104,87 @@ async function fixMySQLDatabase() {
       }
     }
 
-    console.log(`🎉 Database Fix Complete: Updated ${fixedCount} records with normalized model & trim.`);
+    console.log(`🎉 MySQL Fix Complete: Updated ${fixedCount} records with normalized model & trim.`);
   } catch (err: any) {
-    console.warn(`⚠️ MySQL Database fix skipped/failed: ${err.message}`);
+    console.log(`ℹ️ MySQL skipped: ${err.message}`);
   } finally {
     if (connection) await connection.end();
+  }
+}
+
+async function fixSupabaseDatabase() {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.log(`\nℹ️ [3/3 Supabase Database] SUPABASE_URL or SUPABASE_KEY not configured. Skipping Supabase.`);
+    return;
+  }
+
+  console.log(`\n🔌 [3/3 Supabase Database] Connecting to Supabase at ${supabaseUrl}...`);
+  const headers = {
+    apikey: supabaseKey,
+    Authorization: `Bearer ${supabaseKey}`,
+    'Content-Type': 'application/json',
+    Prefer: 'return=minimal',
+  };
+
+  try {
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+    let totalChecked = 0;
+    let totalUpdated = 0;
+
+    while (true) {
+      const fetchUrl = `${supabaseUrl}/rest/v1/competitor_inventory_pricing?select=id,make,model,trim,raw_title,vehicle_url&limit=${PAGE_SIZE}&offset=${offset}`;
+      const res = await axios.get(fetchUrl, { headers });
+      const rows = res.data || [];
+      if (rows.length === 0) break;
+
+      totalChecked += rows.length;
+
+      for (const r of rows) {
+        const normalized = normalizeVehicle({
+          make: r.make,
+          model: r.model,
+          trim: r.trim,
+          vehicleUrl: r.vehicle_url,
+        });
+
+        // Also check if raw_title has hybrid keywords for Hyundai
+        let finalModel = normalized.model;
+        if (normalized.make === 'Hyundai' && finalModel === 'Santa Fe') {
+          if (/\bhybrid\b/i.test(`${r.trim || ''} ${r.raw_title || ''}`)) {
+            finalModel = 'Santa Fe Hybrid';
+          }
+        }
+
+        if (
+          normalized.make !== r.make ||
+          finalModel !== r.model ||
+          (normalized.trim || null) !== (r.trim || null)
+        ) {
+          const patchUrl = `${supabaseUrl}/rest/v1/competitor_inventory_pricing?id=eq.${r.id}`;
+          await axios.patch(
+            patchUrl,
+            {
+              make: normalized.make,
+              model: finalModel,
+              trim: normalized.trim || null,
+            },
+            { headers }
+          );
+          totalUpdated++;
+        }
+      }
+
+      if (rows.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+
+    console.log(`🎉 Supabase Fix Complete: Checked ${totalChecked} rows, updated ${totalUpdated} rows in competitor_inventory_pricing.`);
+  } catch (err: any) {
+    console.warn(`⚠️ Supabase fix error: ${err.message}`);
   }
 }
 
@@ -117,15 +196,24 @@ async function main() {
   console.log(`🛠️  POST-SCRAPE INVENTORY NORMALIZATION WORKFLOW`);
   console.log(`=======================================================`);
 
+  const onlyJson = args.includes('--json');
+  const onlyMysql = args.includes('--mysql');
+  const onlySupabase = args.includes('--supabase');
   const skipDb = args.includes('--no-db');
-  const skipJson = args.includes('--no-json');
 
-  if (!skipJson) {
+  if (onlyJson) {
     await fixJsonOutputFiles(outputDir);
-  }
-
-  if (!skipDb) {
+  } else if (onlyMysql) {
     await fixMySQLDatabase();
+  } else if (onlySupabase) {
+    await fixSupabaseDatabase();
+  } else {
+    // Run all applicable
+    await fixJsonOutputFiles(outputDir);
+    if (!skipDb) {
+      await fixMySQLDatabase();
+      await fixSupabaseDatabase();
+    }
   }
 
   console.log(`\n✅ Normalization workflow finished successfully.\n`);
