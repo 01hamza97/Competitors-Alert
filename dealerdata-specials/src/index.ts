@@ -88,8 +88,11 @@ export async function scrapeSpecials(options: ScrapeSpecialsOptions): Promise<Sp
         // 2. If direct extraction found no specials, fall back to headless browser
         if (result.htmlSpecials.length === 0 && result.visualSpecials.length === 0) {
           if (!browserInitialized) {
+            const proxyToUse = scraper.useDirectConnection
+              ? 'direct'
+              : (options.proxyUrl || process.env.SCRAPER_PROXY_URL);
             await browser.init({
-              proxyUrl: options.proxyUrl || process.env.SCRAPER_PROXY_URL,
+              proxyUrl: proxyToUse,
               headless: options.headless
             });
             browserInitialized = true;

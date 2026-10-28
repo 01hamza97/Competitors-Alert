@@ -13,6 +13,7 @@ export class BanisterFordOfMarlowHeightsScraper implements DealerSpecialsScraper
   readonly specialsUrls = [
     'https://www.banisterfordofmarlowheights.com/new-vehicles/?flags.type=Special'
   ];
+  readonly useDirectConnection = true;
 
   async scrape(ctx: ScrapeContext): Promise<{
     htmlSpecials: CompetitorVehicleSpecial[];

@@ -108,13 +108,18 @@ export class BrowserManager {
     const immediateTitle = await page.title().catch(() => '');
     const immediateHtml = await page.content().catch(() => '');
     const isBlocked =
+      response?.status() === 429 ||
+      response?.status() === 403 ||
       immediateTitle.includes('Access Denied') ||
+      immediateTitle.includes('Too Many Requests') ||
+      immediateTitle.includes('429') ||
       immediateHtml.includes('errors.edgesuite.net') ||
       immediateHtml.includes('<h1>Access Denied</h1>') ||
+      immediateHtml.includes('Too Many Requests') ||
       immediateHtml.includes('Reference #18.');
 
     if (isBlocked && this.isUsingProxy) {
-      console.warn(`[Browser] Proxy IP was blocked by dealer firewall (Akamai/WAF). Falling back to direct stealth connection...`);
+      console.warn(`[Browser] Proxy IP was rate-limited or blocked (status: ${response?.status()}, title: "${immediateTitle}"). Falling back to direct stealth connection...`);
       await page.close().catch(() => {});
       await this.close();
       await this.init({ ...this.currentOptions, proxyUrl: 'direct' });
