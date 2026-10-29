@@ -50,8 +50,8 @@ class PrinceFrederickFordScraper {
         const { targetUrl, dealerId, dealerName, domain, logger } = ctx;
         const cheerio = await Promise.resolve().then(() => __importStar(require('cheerio')));
         let html = ctx.html || '';
-        // 1. Resolve RetailReady public client key (dynamically from DOM script, env, or default)
-        let rrKey = process.env.RETAILREADY_API_KEY || '363c6dbe12ac26669512a3d9f7aef0ee34323133';
+        // 1. Resolve RetailReady client key dynamically from HTML or DOM script
+        let rrKey = '';
         if (html) {
             const keyMatch = html.match(/loadRRCarousel\.min\.js\?key=([a-f0-9]+)/i) ||
                 html.match(/retailready\.ai\/[^"'\s]*key=([a-f0-9]+)/i);
@@ -59,10 +59,10 @@ class PrinceFrederickFordScraper {
                 rrKey = keyMatch[1];
             }
         }
-        if (ctx.page) {
+        if (!rrKey && ctx.page) {
             try {
                 const liveKey = await ctx.page.evaluate(() => {
-                    const s = document.querySelector('script[src*="loadRRCarousel"]');
+                    const s = document.querySelector('script[src*="loadRRCarousel"], script[src*="retailready"]');
                     if (s && s.src) {
                         const m = s.src.match(/key=([a-f0-9]+)/i);
                         return m ? m[1] : null;
@@ -73,6 +73,10 @@ class PrinceFrederickFordScraper {
                     rrKey = liveKey;
             }
             catch { }
+        }
+        // Default fallback key only if page script could not be parsed
+        if (!rrKey) {
+            rrKey = '363c6dbe12ac26669512a3d9f7aef0ee34323133';
         }
         // 2. Directly fetch RetailReady / StreamCompanies top carousel API
         let retailReadyHtml = '';
