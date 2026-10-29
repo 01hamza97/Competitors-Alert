@@ -10,6 +10,9 @@ const hyundai_of_anaheim_1 = require("./hyundai_of_anaheim");
 const waldorf_ford_1 = require("./waldorf_ford");
 const world_of_ford_alexandria_1 = require("./world_of_ford_alexandria");
 const banister_ford_of_marlow_heights_1 = require("./banister_ford_of_marlow_heights");
+const upper_marlboro_ford_1 = require("./upper_marlboro_ford");
+const prince_frederick_ford_1 = require("./prince_frederick_ford");
+const covina_kia_1 = require("./covina_kia");
 class DealerRegistry {
     static scrapers = new Map();
     static {
@@ -27,6 +30,9 @@ class DealerRegistry {
         DealerRegistry.register(new waldorf_ford_1.WaldorfFordScraper());
         DealerRegistry.register(new world_of_ford_alexandria_1.WorldOfFordAlexandriaScraper());
         DealerRegistry.register(new banister_ford_of_marlow_heights_1.BanisterFordOfMarlowHeightsScraper());
+        DealerRegistry.register(new upper_marlboro_ford_1.UpperMarlboroFordScraper());
+        DealerRegistry.register(new prince_frederick_ford_1.PrinceFrederickFordScraper());
+        DealerRegistry.register(new covina_kia_1.CovinaKiaScraper());
     }
     static register(scraper) {
         const cleanId = scraper.id.toLowerCase().replace(/^store_/, '');

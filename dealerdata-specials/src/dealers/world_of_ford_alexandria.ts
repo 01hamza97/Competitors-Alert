@@ -25,24 +25,26 @@ export class WorldOfFordAlexandriaScraper implements DealerSpecialsScraper {
 
     // 1. If HTML wasn't already loaded or provided in context, attempt fast render via ZenRows API
     if (!html) {
-      const apiKey = process.env.ZENROWS_API_KEY || '6ecae7778b309ecac79a32c25bc77b94a86c07a3';
-      logger.log(`Fetching ${dealerName} via ZenRows API (js_render=true, wait_for=.promo[data-promo-id])...`);
-      try {
-        const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${apiKey}&url=${encodeURIComponent(targetUrl)}&js_render=true&wait_for=${encodeURIComponent('.promo[data-promo-id]')}`;
-        const resp = await axios.get(zenrowsUrl, { timeout: 45000 });
-        if (resp.data && typeof resp.data === 'string' && resp.data.includes('promo')) {
-          html = resp.data;
+      const apiKey = process.env.ZENROWS_API_KEY;
+      if (apiKey) {
+        logger.log(`Fetching ${dealerName} via ZenRows API (js_render=true, wait_for=.promo[data-promo-id])...`);
+        try {
+          const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${apiKey}&url=${encodeURIComponent(targetUrl)}&js_render=true&wait_for=${encodeURIComponent('.promo[data-promo-id]')}`;
+          const resp = await axios.get(zenrowsUrl, { timeout: 45000 });
+          if (resp.data && typeof resp.data === 'string' && resp.data.includes('promo')) {
+            html = resp.data;
+          }
+        } catch (zenErr: any) {
+          logger.warn(`ZenRows fetch notice: ${zenErr.message}`);
         }
-      } catch (zenErr: any) {
-        logger.warn(`ZenRows fetch notice: ${zenErr.message}`);
       }
     }
 
-    // 2. If still no HTML and browser page context exists, wait for specials widget in Playwright
-    if (!html && ctx.page) {
+    // 2. If HTML is missing or does not contain promo cards, wait for specials widget in Playwright
+    if ((!html || !html.includes('data-promo-id')) && ctx.page) {
       try {
         await ctx.page.waitForSelector(
-          '#specials1-app-root, #specials2-app-root, .promo[data-promo-id]',
+          '#specials1-app-root .slick-slide, #specials2-app-root .slick-slide, .promo[data-promo-id], .promo-type-vehicle',
           { timeout: 15000 }
         );
         await ctx.page.waitForTimeout(1000);
@@ -52,8 +54,8 @@ export class WorldOfFordAlexandriaScraper implements DealerSpecialsScraper {
       }
     }
 
-    // 3. If no HTML could be obtained directly, delegate to Playwright runner
-    if (!html && !ctx.page) {
+    // 3. If no HTML could be obtained directly or it lacks promo cards, delegate to Playwright runner
+    if ((!html || !html.includes('data-promo-id')) && !ctx.page) {
       logger.log(`Browser context required for DOM extraction. Delegating to Playwright...`);
       return { htmlSpecials: [], visualSpecials: [] };
     }

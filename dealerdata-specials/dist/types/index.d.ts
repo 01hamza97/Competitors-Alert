@@ -91,6 +91,7 @@ export interface DealerSpecialsScraper {
     readonly name: string;
     readonly domain: string;
     readonly specialsUrls: string[];
+    readonly useDirectConnection?: boolean;
     scrape(context: ScrapeContext): Promise<{
         htmlSpecials: CompetitorVehicleSpecial[];
         visualSpecials: StagedVisualSpecial[];

@@ -61,7 +61,15 @@ export class BrowserManager {
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       viewport: { width: 1440, height: 900 },
       locale: 'en-US',
-      timezoneId: 'America/Los_Angeles'
+      timezoneId: 'America/Los_Angeles',
+      extraHTTPHeaders: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
+        'Upgrade-Insecure-Requests': '1'
+      }
     });
 
     // Remove webdriver flag to evade standard bot detections
@@ -104,22 +112,28 @@ export class BrowserManager {
       }
     }
 
-    // Immediate check for Access Denied / WAF block on proxy
+    // Immediate check for Access Denied / WAF block / Proxy Auth / Quota exhaustion
     const immediateTitle = await page.title().catch(() => '');
     const immediateHtml = await page.content().catch(() => '');
     const isBlocked =
       response?.status() === 429 ||
       response?.status() === 403 ||
+      response?.status() === 401 ||
+      response?.status() === 402 ||
       immediateTitle.includes('Access Denied') ||
       immediateTitle.includes('Too Many Requests') ||
+      immediateTitle.includes('Payment Required') ||
       immediateTitle.includes('429') ||
       immediateHtml.includes('errors.edgesuite.net') ||
       immediateHtml.includes('<h1>Access Denied</h1>') ||
       immediateHtml.includes('Too Many Requests') ||
-      immediateHtml.includes('Reference #18.');
+      immediateHtml.includes('Reference #18.') ||
+      immediateHtml.includes('AUTH004') ||
+      immediateHtml.includes('usage limit') ||
+      immediateHtml.includes('Usage exceeded');
 
     if (isBlocked && this.isUsingProxy) {
-      console.warn(`[Browser] Proxy IP was rate-limited or blocked (status: ${response?.status()}, title: "${immediateTitle}"). Falling back to direct stealth connection...`);
+      console.warn(`[Browser] Proxy error or block detected (status: ${response?.status()}, title: "${immediateTitle}"). Falling back to direct stealth connection...`);
       await page.close().catch(() => {});
       await this.close();
       await this.init({ ...this.currentOptions, proxyUrl: 'direct' });
@@ -131,8 +145,8 @@ export class BrowserManager {
     const startWait = Date.now();
     while (Date.now() - startWait < 30000) {
       const bodyText = await page.evaluate(() => (document.body ? document.body.innerText : '')).catch(() => '');
-      if (bodyText.includes('Too many requests') || (bodyText.length < 50 && !bodyText.includes('special'))) {
-        console.log(`[Browser] Rate limit cooldown / empty response on ${url}. Waiting 15s...`);
+      if (bodyText.includes('Too many requests')) {
+        console.log(`[Browser] Rate limit cooldown on ${url}. Waiting 15s...`);
         await page.waitForTimeout(15000);
         await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs }).catch(() => {});
         continue;

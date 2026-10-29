@@ -37,137 +37,136 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorldOfFordAlexandriaScraper = void 0;
+const axios_1 = __importDefault(require("axios"));
 const crypto_1 = __importDefault(require("crypto"));
 class WorldOfFordAlexandriaScraper {
     id = 'world_of_ford_alexandria';
     name = 'World Of Ford Alexandria';
     domain = 'worldoffordalexandria.com';
     specialsUrls = [
-        'https://www.worldoffordalexandria.com/promotions/new/index.htm'
+        'https://www.worldoffordalexandria.com/'
     ];
     async scrape(ctx) {
         const { targetUrl, dealerId, dealerName, domain, logger } = ctx;
-        // 1. If no browser page provided yet, return empty so index.ts boots Playwright and passes page
-        if (!ctx.page) {
-            logger.log(`Browser context required for DOM extraction. Delegating to Playwright...`);
-            return { htmlSpecials: [], visualSpecials: [] };
-        }
-        const page = ctx.page;
-        logger.log(`Executing DOM specials extraction for ${dealerName} (${dealerId})...`);
-        // 2. Expand all promo cards by clicking 'Load More' repeatedly
-        try {
-            let prevCount = 0;
-            for (let attempt = 1; attempt <= 15; attempt++) {
-                const cards = await page.$$('.promo[data-promo-id], .promo-type-vehicle[data-promo-id], .promo-type-incentive[data-promo-id]');
-                if (cards.length > 0 && cards.length === prevCount && attempt > 2) {
-                    logger.log(`All promo cards expanded (${cards.length} cards in DOM).`);
-                    break;
+        const cheerio = await Promise.resolve().then(() => __importStar(require('cheerio')));
+        let html = ctx.html || '';
+        // 1. If HTML wasn't already loaded or provided in context, attempt fast render via ZenRows API
+        if (!html) {
+            const apiKey = process.env.ZENROWS_API_KEY;
+            if (apiKey) {
+                logger.log(`Fetching ${dealerName} via ZenRows API (js_render=true, wait_for=.promo[data-promo-id])...`);
+                try {
+                    const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${apiKey}&url=${encodeURIComponent(targetUrl)}&js_render=true&wait_for=${encodeURIComponent('.promo[data-promo-id]')}`;
+                    const resp = await axios_1.default.get(zenrowsUrl, { timeout: 45000 });
+                    if (resp.data && typeof resp.data === 'string' && resp.data.includes('promo')) {
+                        html = resp.data;
+                    }
                 }
-                prevCount = cards.length;
-                const loadMoreBtn = page.locator([
-                    'button:has-text("Load More")',
-                    'a:has-text("Load More")',
-                    'button:has-text("Show More")',
-                    '[data-testid*="load-more"]',
-                    '.load-more-btn',
-                    '.load-more'
-                ].join(', ')).first();
-                const isVisible = await loadMoreBtn.isVisible().catch(() => false);
-                if (isVisible) {
-                    logger.log(`Clicking 'Load More' button (current cards in DOM: ${prevCount})...`);
-                    await loadMoreBtn.click().catch(() => { });
-                    await page.waitForTimeout(1500);
-                }
-                else {
-                    // Scroll down to trigger any dynamic lazy-load triggers
-                    await page.evaluate(() => window.scrollBy(0, document.body.scrollHeight / 3));
-                    await page.waitForTimeout(800);
-                    const isVisibleAfterScroll = await loadMoreBtn.isVisible().catch(() => false);
-                    if (!isVisibleAfterScroll)
-                        break;
+                catch (zenErr) {
+                    logger.warn(`ZenRows fetch notice: ${zenErr.message}`);
                 }
             }
         }
-        catch (clickErr) {
-            logger.warn(`Notice while clicking 'Load More': ${clickErr.message}`);
+        // 2. If HTML is missing or does not contain promo cards, wait for specials widget in Playwright
+        if ((!html || !html.includes('data-promo-id')) && ctx.page) {
+            try {
+                await ctx.page.waitForSelector('#specials1-app-root .slick-slide, #specials2-app-root .slick-slide, .promo[data-promo-id], .promo-type-vehicle', { timeout: 15000 });
+                await ctx.page.waitForTimeout(1000);
+                html = await ctx.page.content();
+            }
+            catch (waitErr) {
+                logger.warn(`Browser DOM wait notice: ${waitErr.message}`);
+            }
         }
-        // 3. Extract loaded DOM with Cheerio
-        const cheerio = await Promise.resolve().then(() => __importStar(require('cheerio')));
-        const hydratedHtml = await page.content();
-        const $ = cheerio.load(hydratedHtml);
+        // 3. If no HTML could be obtained directly or it lacks promo cards, delegate to Playwright runner
+        if ((!html || !html.includes('data-promo-id')) && !ctx.page) {
+            logger.log(`Browser context required for DOM extraction. Delegating to Playwright...`);
+            return { htmlSpecials: [], visualSpecials: [] };
+        }
+        if (!html) {
+            logger.warn(`Could not retrieve rendered HTML for ${dealerName}.`);
+            return { htmlSpecials: [], visualSpecials: [] };
+        }
+        const $ = (cheerio.load || cheerio.default?.load)(html);
         const visualSpecials = [];
         const seenPromoIds = new Set();
         const today = new Date().toISOString().split('T')[0];
-        // Target top-level promo cards
+        // Target promo cards strictly within ws-specials carousel widgets
         const promoCards = $('.promo:not(.wsm-specials-display), [data-promo-id]:not(.wsm-specials-display)');
         logger.log(`Processing ${promoCards.length} promo elements found in DOM...`);
         promoCards.each((i, el) => {
             const card = $(el);
-            // Skip inner display elements
+            // Skip inner display wrappers or cloned slides if already processed
             if (card.hasClass('wsm-specials-display') || card.parent().closest('.promo').length > 0)
                 return;
             const promoId = card.attr('data-promo-id') || card.attr('id') || `wfa_${Date.now()}_${i}`;
             if (seenPromoIds.has(promoId))
                 return;
             seenPromoIds.add(promoId);
-            // Determine if this is a custom-asset visual flyer banner vs text-based incentive card
-            const isCustomAsset = card.hasClass('custom-asset') || card.hasClass('promo-type-vehicle');
-            // A. Extract Title
+            // We strictly require custom-asset vehicle marketing flyers.
+            // Individual inventory specials / markdown text cards are NEVER extracted.
+            const isCustomAsset = card.hasClass('custom-asset');
+            const isPromoVehicle = card.hasClass('promo-type-vehicle');
+            if (!isPromoVehicle || !isCustomAsset) {
+                // Skip non-vehicle branding/events (e.g. JDP Award, MLB, Lifetime Edge) and inventory cards
+                return;
+            }
+            // A. Extract Title & Text Elements
             const dataTitle = (card.attr('data-title') || '').trim();
-            const h2 = card.find('h2');
-            const h2Span = h2.find('span').text().trim();
-            const h2Title = h2.clone().children().remove().end().text().trim();
             const srOnlyText = card.find('.sr-only').text().trim();
-            const title = dataTitle || h2Title || srOnlyText.split('.')[0] || `${dealerName} Special #${i + 1}`;
-            // B. Filter Out Non-Vehicle Marketing Promos
-            const isMarketingPromo = /why buy|about us|value your trade|schedule service|career|advantage|community|contact us|meet our team|military|college grad|service special|parts special|collision/i.test(title);
-            if (isMarketingPromo) {
-                logger.log(`Skipping non-vehicle promo card: "${title}"`);
+            const title = dataTitle || srOnlyText.split('.')[0] || `${dealerName} Special #${i + 1}`;
+            // B. Filter Out Non-Vehicle Events or General Dealership Marketing
+            const isExcludedPromo = /\b(jdp brand award|mlb run the dirt|run the dirt|lifetime edge|service guarantee|we'll buy your car|buy your car|certified pre-owned|why buy|about us|value your trade|schedule service|career|meet our team)\b/i.test(title) ||
+                card.hasClass('promo-type-event');
+            if (isExcludedPromo) {
+                logger.log(`Skipping branding/event promo: "${title}"`);
                 return;
             }
-            // C. Extract Rich Text Elements
-            const ldJson = card.find('script[type="application/ld+json"]').text().trim();
-            const disclaimer = card.find('.details-and-disclaimer-button, .disclaimer, small, p.terms').text().trim();
-            const textParts = [
-                title,
-                h2Span && h2Span !== title ? `Offer: ${h2Span}` : '',
-                srOnlyText && srOnlyText !== title && srOnlyText !== h2Span ? srOnlyText : '',
-                ldJson ? `Schema: ${ldJson}` : '',
-                disclaimer ? `Disclaimer: ${disclaimer}` : ''
-            ].filter(Boolean);
-            const rawText = textParts.join('\n---\n');
-            // Verify card has some vehicle or payment signal
-            const hasVehicleSignal = /\b(ford|f-150|f-250|f-350|f-450|explorer|bronco|mustang|ranger|maverick|expedition|escape|edge|transit)\b/i.test(rawText) ||
-                /\b(lease|purchase|apr|per month|\/mo|\$|discount|savings|bonus cash|cash back|financing)\b/i.test(rawText);
-            if (!hasVehicleSignal) {
-                logger.log(`Skipping card without vehicle/pricing signal: "${title}"`);
-                return;
-            }
-            // D. Extract Image URL
-            const img = card.find('img');
+            // C. Extract High-Resolution Flyer Creative Image URL
+            const img = card.find('img').first();
             let rawImgUrl = img.attr('data-image-url') ||
                 img.attr('src') ||
                 img.attr('data-src') ||
                 '';
-            let cleanImageUrl = '';
-            if (rawImgUrl) {
-                if (rawImgUrl.startsWith('//')) {
-                    cleanImageUrl = `https:${rawImgUrl}`;
-                }
-                else if (rawImgUrl.startsWith('/')) {
-                    cleanImageUrl = `https://${domain}${rawImgUrl}`;
-                }
-                else {
-                    cleanImageUrl = rawImgUrl;
-                }
-                cleanImageUrl = cleanImageUrl.replace(/\?impolicy=.*$/i, '');
+            if (!rawImgUrl)
+                return;
+            let cleanImageUrl = rawImgUrl;
+            if (cleanImageUrl.startsWith('//')) {
+                cleanImageUrl = `https:${cleanImageUrl}`;
             }
-            // Check if image is an actual marketing flyer creative vs inventory thumbnail
-            const hasFlyerImage = isCustomAsset || /dbcreative/i.test(cleanImageUrl);
-            const specialType = hasFlyerImage ? 'vehicle_flyer' : 'vehicle_text';
-            // E. Extract Click / Destination Link
+            else if (cleanImageUrl.startsWith('/')) {
+                cleanImageUrl = `https://${domain}${cleanImageUrl}`;
+            }
+            // Remove downsize parameter to retain high-res creative flyer
+            cleanImageUrl = cleanImageUrl.replace(/\?impolicy=.*$/i, '');
+            // Strictly ensure this is a graphical marketing flyer creative
+            const hasFlyerImage = isCustomAsset ||
+                /dbcreative/i.test(cleanImageUrl) ||
+                /pictures\.dealer\.com\/f\/forddirect/i.test(cleanImageUrl);
+            if (!hasFlyerImage) {
+                logger.log(`Skipping standard inventory listing card without flyer creative: "${title}"`);
+                return;
+            }
+            // D. Verify Vehicle & Financing Signal
+            const ldJson = card.find('script[type="application/ld+json"]').text().trim();
+            const disclaimer = card.find('.details-and-disclaimer-button, .disclaimer, small, p.terms').text().trim();
+            const textParts = [
+                `Offer Title: ${title}`,
+                srOnlyText ? `Offer Details: ${srOnlyText}` : '',
+                ldJson ? `Schema: ${ldJson}` : '',
+                disclaimer ? `Disclaimer: ${disclaimer}` : '',
+                `Flyer Image: ${cleanImageUrl}`
+            ].filter(Boolean);
+            const rawText = textParts.join('\n---\n');
+            const hasVehicleSignal = /\b(ford|f-150|f-250|f-350|f-450|explorer|bronco|mustang|ranger|maverick|expedition|escape|edge|transit)\b/i.test(rawText) &&
+                /\b(lease|purchase|apr|\/mo|per month|\$|discount|savings|bonus cash|cash back|financing)\b/i.test(rawText);
+            if (!hasVehicleSignal) {
+                logger.log(`Skipping promo without vehicle financing signal: "${title}"`);
+                return;
+            }
+            // E. Destination Link
             let destUrl = card.attr('data-url-href') ||
-                card.find('a.btn-primary, a[href*="promotionId"], a').attr('href') ||
+                card.find('a[href*="promotionId"], a').attr('href') ||
                 targetUrl;
             if (destUrl && !destUrl.startsWith('http')) {
                 try {
@@ -175,24 +174,22 @@ class WorldOfFordAlexandriaScraper {
                 }
                 catch { }
             }
-            // Stable hash
             const hashSource = `${dealerId}_${promoId}_${title}_${cleanImageUrl}`;
             const imageHash = crypto_1.default.createHash('sha256').update(hashSource).digest('hex');
             visualSpecials.push({
-                id: `stg_${dealerId}_${promoId}`,
+                id: `stg_${dealerId}_flyer_${promoId}`,
                 dealerId,
                 offerDealerName: dealerName,
                 clientDealerName: dealerName,
                 snapshotDate: today,
-                specialType,
+                specialType: 'vehicle_flyer', // Staged exclusively for n8n Vision AI
                 title: title.slice(0, 190),
                 details: JSON.stringify({
                     imageUrl: cleanImageUrl,
                     destinationUrl: destUrl,
                     pageUrl: targetUrl,
                     promoId,
-                    cardType: hasFlyerImage ? 'custom_asset' : 'incentive',
-                    hasVisualFlyer: hasFlyerImage
+                    platform: 'dealercom_custom_asset_flyer'
                 }),
                 status: 'pending',
                 rawText,
@@ -202,9 +199,7 @@ class WorldOfFordAlexandriaScraper {
                 pageUrl: targetUrl
             });
         });
-        const flyerCount = visualSpecials.filter((s) => s.specialType === 'vehicle_flyer').length;
-        const textCount = visualSpecials.filter((s) => s.specialType === 'vehicle_text').length;
-        logger.log(`Extracted ${visualSpecials.length} staged specials from ${dealerName} (${flyerCount} visual flyers for Vision AI, ${textCount} text incentives for Text AI).`);
+        logger.log(`Extracted ${visualSpecials.length} marketing campaign flyers from ${dealerName} (Strictly 0 inventory specials).`);
         return { htmlSpecials: [], visualSpecials };
     }
 }

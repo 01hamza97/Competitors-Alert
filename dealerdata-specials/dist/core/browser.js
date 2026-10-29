@@ -44,8 +44,6 @@ class BrowserManager {
                 '--disable-blink-features=AutomationControlled',
                 '--no-sandbox',
                 '--disable-dev-shm-usage',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins,site-per-process',
                 '--ignore-certificate-errors',
                 '--ignore-certificate-errors-spki-list'
             ]
@@ -101,15 +99,26 @@ class BrowserManager {
                 throw err;
             }
         }
-        // Immediate check for Access Denied / WAF block on proxy
+        // Immediate check for Access Denied / WAF block / Proxy Auth / Quota exhaustion
         const immediateTitle = await page.title().catch(() => '');
         const immediateHtml = await page.content().catch(() => '');
-        const isBlocked = immediateTitle.includes('Access Denied') ||
+        const isBlocked = response?.status() === 429 ||
+            response?.status() === 403 ||
+            response?.status() === 401 ||
+            response?.status() === 402 ||
+            immediateTitle.includes('Access Denied') ||
+            immediateTitle.includes('Too Many Requests') ||
+            immediateTitle.includes('Payment Required') ||
+            immediateTitle.includes('429') ||
             immediateHtml.includes('errors.edgesuite.net') ||
             immediateHtml.includes('<h1>Access Denied</h1>') ||
-            immediateHtml.includes('Reference #18.');
+            immediateHtml.includes('Too Many Requests') ||
+            immediateHtml.includes('Reference #18.') ||
+            immediateHtml.includes('AUTH004') ||
+            immediateHtml.includes('usage limit') ||
+            immediateHtml.includes('Usage exceeded');
         if (isBlocked && this.isUsingProxy) {
-            console.warn(`[Browser] Proxy IP was blocked by dealer firewall (Akamai/WAF). Falling back to direct stealth connection...`);
+            console.warn(`[Browser] Proxy error or block detected (status: ${response?.status()}, title: "${immediateTitle}"). Falling back to direct stealth connection...`);
             await page.close().catch(() => { });
             await this.close();
             await this.init({ ...this.currentOptions, proxyUrl: 'direct' });
@@ -120,8 +129,8 @@ class BrowserManager {
         const startWait = Date.now();
         while (Date.now() - startWait < 30000) {
             const bodyText = await page.evaluate(() => (document.body ? document.body.innerText : '')).catch(() => '');
-            if (bodyText.includes('Too many requests') || (bodyText.length < 50 && !bodyText.includes('special'))) {
-                console.log(`[Browser] Rate limit cooldown / empty response on ${url}. Waiting 15s...`);
+            if (bodyText.includes('Too many requests')) {
+                console.log(`[Browser] Rate limit cooldown on ${url}. Waiting 15s...`);
                 await page.waitForTimeout(15000);
                 await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs }).catch(() => { });
                 continue;
