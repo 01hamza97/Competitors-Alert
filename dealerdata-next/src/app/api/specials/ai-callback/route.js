@@ -158,6 +158,10 @@ export async function POST(request) {
         extracted.msrp != null && extracted.msrp !== ''
           ? parseFloat(String(extracted.msrp).replace(/[^0-9.]/g, ''))
           : null;
+      const cleanOfferDetails =
+        extracted.offer_details && String(extracted.offer_details).trim().length > 0
+          ? String(extracted.offer_details).trim()
+          : null;
 
       const cleanTitle = (
         extracted.title ||
@@ -168,8 +172,76 @@ export async function POST(request) {
       const finalImageUrl = detailsObj.imageUrl || extracted.image_url || null;
       const finalSpecialUrl = detailsObj.specialUrl || extracted.special_url || null;
 
+      // Card Qualification Check: Must have at least one actionable numeric term
+      // (monthly payment, apr rate, down payment, term months, msrp, or specific dollar/percent offer detail)
+      const hasNumericTerms = (
+        (cleanMonthly != null && cleanMonthly > 0) ||
+        (cleanApr != null && cleanApr >= 0) ||
+        (cleanDown != null && cleanDown >= 0) ||
+        (cleanTerm != null && cleanTerm > 0) ||
+        (cleanMsrp != null && cleanMsrp > 0) ||
+        cleanOfferDetails != null
+      );
+
+      const shouldDiscard =
+        item.discard === true ||
+        item.status === 'discarded' ||
+        extracted.is_special === false ||
+        !hasNumericTerms ||
+        cleanMake === 'Unknown';
+
+      const targetHash = imageHash || stagingRecord.imageHash;
+
+      if (shouldDiscard) {
+        const discardReason =
+          item.discard_reason ||
+          (!hasNumericTerms
+            ? 'No actionable numeric offer terms (no amount, term, or APR)'
+            : 'Classified as non-special branding');
+
+        const discardedJsonString = JSON.stringify({
+          is_special: false,
+          discard_reason: discardReason,
+          raw_ai_extracted: extracted,
+        });
+
+        // 1. Mark primary staging record as discarded
+        await prisma.specialsStaging.update({
+          where: { id: stagingRecord.id },
+          data: {
+            title: cleanTitle,
+            rawText: rawText || stagingRecord.rawText,
+            extractedJson: discardedJsonString,
+            status: 'discarded',
+          },
+        });
+
+        // 2. Propagate discarded status to all duplicate sibling records with the same imageHash
+        if (targetHash) {
+          await prisma.specialsStaging.updateMany({
+            where: {
+              imageHash: targetHash,
+              id: { not: stagingRecord.id },
+            },
+            data: {
+              extractedJson: discardedJsonString,
+              status: 'discarded',
+            },
+          });
+        }
+
+        results.push({
+          stagingId: stagingRecord.id,
+          imageHash: targetHash,
+          status: 'discarded',
+          reason: discardReason,
+        });
+        continue;
+      }
+
       const newStatus = autoApprove ? 'approved' : 'completed';
       const extractedJsonString = JSON.stringify({
+        is_special: true,
         year: cleanYear,
         make: cleanMake,
         model: cleanModel,
@@ -180,6 +252,7 @@ export async function POST(request) {
         down_payment: cleanDown,
         apr: cleanApr,
         msrp: cleanMsrp,
+        offer_details: cleanOfferDetails,
         title: cleanTitle,
         disclaimer: cleanDisclaimer,
         expiration_date: cleanExp,
@@ -197,7 +270,6 @@ export async function POST(request) {
       });
 
       // 2. Global AI Cache Propagation: Update all other matching flyer records with this imageHash
-      const targetHash = imageHash || stagingRecord.imageHash;
       let siblingStagingRecords = [];
       if (targetHash) {
         siblingStagingRecords = await prisma.specialsStaging.findMany({
