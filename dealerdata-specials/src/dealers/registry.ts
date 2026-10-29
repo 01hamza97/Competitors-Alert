@@ -12,6 +12,7 @@ import { UpperMarlboroFordScraper } from './upper_marlboro_ford';
 import { PrinceFrederickFordScraper } from './prince_frederick_ford';
 import { CovinaKiaScraper } from './covina_kia';
 import { PomonaKiaScraper } from './pomona_kia';
+import { KiaOfCerritosScraper } from './kia_of_cerritos';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -35,6 +36,11 @@ export class DealerRegistry {
     DealerRegistry.register(new PrinceFrederickFordScraper());
     DealerRegistry.register(new CovinaKiaScraper());
     DealerRegistry.register(new PomonaKiaScraper());
+    const koc = new KiaOfCerritosScraper();
+    DealerRegistry.register(koc);
+    DealerRegistry.scrapers.set('kia_cerritos', koc);
+    DealerRegistry.scrapers.set('kia_of_cerritos', koc);
+    DealerRegistry.scrapers.set('kiacerritos', koc);
   }
 
   static register(scraper: DealerSpecialsScraper): void {

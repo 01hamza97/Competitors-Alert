@@ -144,11 +144,22 @@ export class BrowserManager {
     // Rate-limit cooldown or Cloudflare challenge check
     const startWait = Date.now();
     while (Date.now() - startWait < 30000) {
+      const pageTitle = await page.title().catch(() => '');
       const bodyText = await page.evaluate(() => (document.body ? document.body.innerText : '')).catch(() => '');
       if (bodyText.includes('Too many requests')) {
         console.log(`[Browser] Rate limit cooldown on ${url}. Waiting 15s...`);
         await page.waitForTimeout(15000);
         await page.reload({ waitUntil: 'domcontentloaded', timeout: timeoutMs }).catch(() => {});
+        continue;
+      }
+      if (
+        pageTitle.includes('Just a moment') ||
+        pageTitle.includes('Attention Required') ||
+        bodyText.includes('Verify you are human') ||
+        bodyText.includes('Checking your browser')
+      ) {
+        console.log(`[Browser] Cloudflare challenge active on ${url} ("${pageTitle}"). Waiting for clearance...`);
+        await page.waitForTimeout(2000);
         continue;
       }
       break;
