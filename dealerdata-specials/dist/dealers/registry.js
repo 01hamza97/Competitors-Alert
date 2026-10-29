@@ -13,6 +13,7 @@ const banister_ford_of_marlow_heights_1 = require("./banister_ford_of_marlow_hei
 const upper_marlboro_ford_1 = require("./upper_marlboro_ford");
 const prince_frederick_ford_1 = require("./prince_frederick_ford");
 const covina_kia_1 = require("./covina_kia");
+const pomona_kia_1 = require("./pomona_kia");
 class DealerRegistry {
     static scrapers = new Map();
     static {
@@ -33,6 +34,7 @@ class DealerRegistry {
         DealerRegistry.register(new upper_marlboro_ford_1.UpperMarlboroFordScraper());
         DealerRegistry.register(new prince_frederick_ford_1.PrinceFrederickFordScraper());
         DealerRegistry.register(new covina_kia_1.CovinaKiaScraper());
+        DealerRegistry.register(new pomona_kia_1.PomonaKiaScraper());
     }
     static register(scraper) {
         const cleanId = scraper.id.toLowerCase().replace(/^store_/, '');

@@ -11,6 +11,7 @@ import { BanisterFordOfMarlowHeightsScraper } from './banister_ford_of_marlow_he
 import { UpperMarlboroFordScraper } from './upper_marlboro_ford';
 import { PrinceFrederickFordScraper } from './prince_frederick_ford';
 import { CovinaKiaScraper } from './covina_kia';
+import { PomonaKiaScraper } from './pomona_kia';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -33,6 +34,7 @@ export class DealerRegistry {
     DealerRegistry.register(new UpperMarlboroFordScraper());
     DealerRegistry.register(new PrinceFrederickFordScraper());
     DealerRegistry.register(new CovinaKiaScraper());
+    DealerRegistry.register(new PomonaKiaScraper());
   }
 
   static register(scraper: DealerSpecialsScraper): void {
