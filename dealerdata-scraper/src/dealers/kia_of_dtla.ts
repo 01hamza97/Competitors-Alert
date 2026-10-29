@@ -175,7 +175,154 @@ export class KiaOfDtlaInventoryScraper implements DealerInventoryScraper {
       }
     }
 
-    logger.log(`Successfully extracted ${allListings.length} total listings from ${uniqueModelPaths.length} model categories.`);
+    logger.log(`Successfully extracted ${allListings.length} listings from SRP model categories.`);
+
+    // Supplementary Step: Check inventoryvdpsitemap.xml for active dealer inventory not indexed in SRP model categories
+    try {
+      const sitemapUrl = `${rootUrl}/inventoryvdpsitemap.xml`;
+      logger.log(`Auditing sitemap ${sitemapUrl} for unindexed lot units...`);
+      const sitemapResp = await axios.get(sitemapUrl, {
+        headers: { 'User-Agent': this.userAgent },
+        timeout: 10000
+      });
+      const sitemapXml = sitemapResp.data as string;
+      const urlMatches = sitemapXml.match(/<loc>(.*?)<\/loc>/g) || [];
+      const cleanUrls = urlMatches.map(u => u.replace(/<\/?loc>/g, ''));
+
+      const targetTypePrefix = inventoryType === 'Used' ? '/viewdetails/used/' : '/viewdetails/new/';
+      const missingVdpUrls: { vin: string; url: string }[] = [];
+
+      for (const u of cleanUrls) {
+        if (!u.includes(targetTypePrefix)) continue;
+        const vinMatch = u.match(/\/([a-zA-Z0-9]{17})\//i);
+        if (!vinMatch) continue;
+        const vin = vinMatch[1].toUpperCase();
+        if (!seenVins.has(vin)) {
+          seenVins.add(vin);
+          missingVdpUrls.push({ vin, url: u });
+        }
+      }
+
+      if (missingVdpUrls.length > 0) {
+        logger.log(`Found ${missingVdpUrls.length} unindexed units in sitemap. Hydrating details via VDP...`);
+        const chunkSize = 10;
+        for (let i = 0; i < missingVdpUrls.length; i += chunkSize) {
+          const chunk = missingVdpUrls.slice(i, i + chunkSize);
+          await Promise.all(
+            chunk.map(async ({ vin, url }) => {
+              try {
+                totalPagesCrawled++;
+                const vdpResp = await axios.get(url, {
+                  headers: { 'User-Agent': this.userAgent },
+                  timeout: 10000
+                });
+                const $vdp = cheerio.load(vdpResp.data);
+                const rawTitle =
+                  $vdp('h1').text().trim().replace(/\s+/g, ' ') ||
+                  $vdp('title').text().trim().replace(/\s+/g, ' ');
+                const pageText = $vdp('body').text().replace(/\s+/g, ' ');
+
+                let listPrice = 0;
+                let msrp: number | undefined;
+
+                const totalMatch =
+                  pageText.match(/Total\s+Price\s*\$([0-9,]+)/i) ||
+                  pageText.match(/Total\s+Sales\s+Price\s*\$([0-9,]+)/i) ||
+                  pageText.match(/Sale\s+Price\s*\$([0-9,]+)/i) ||
+                  pageText.match(/Our\s+Price\s*\$([0-9,]+)/i);
+
+                if (totalMatch) {
+                  listPrice = parseFloat(totalMatch[1].replace(/,/g, ''));
+                }
+                const msrpMatch = pageText.match(/MSRP\s*\$([0-9,]+)/i);
+                if (msrpMatch) {
+                  msrp = parseFloat(msrpMatch[1].replace(/,/g, ''));
+                }
+                if (!listPrice && msrp) {
+                  listPrice = msrp;
+                }
+
+                const stockField = $vdp('.stock-number-field').text().trim();
+                const stockMatch = stockField.replace(/stock:?\s*/i, '').replace(/[^a-zA-Z0-9-]/g, '').trim();
+                const stockNumber = stockMatch || undefined;
+
+                const imageUrl = $vdp('meta[property="og:image"]').attr('content') || undefined;
+
+                // Parse title
+                const yearMatch = rawTitle.match(/\b(202[4-9])\b/);
+                const year = yearMatch ? parseInt(yearMatch[1], 10) : new Date().getFullYear();
+                const titleWithoutYear = rawTitle.replace(/\b202[4-9]\b/, '').replace(/Kia\s+Downtown.*$/i, '').trim();
+                const words = titleWithoutYear.split(' ').filter(Boolean);
+                let make = 'Kia';
+                let model = 'Unknown';
+                let trim: string | undefined;
+
+                if (words[0] && words[0].toLowerCase() === 'kia') {
+                  model = words[1] || 'Unknown';
+                  if (words[2] && /hybrid|ev|phev|plug-in/i.test(words[2])) {
+                    model = `${words[1]} ${words[2]}`;
+                    trim = words.slice(3).join(' ') || undefined;
+                  } else {
+                    trim = words.slice(2).join(' ') || undefined;
+                  }
+                } else if (words.length > 0) {
+                  model = words[0];
+                  trim = words.slice(1).join(' ') || undefined;
+                }
+
+                const normMake = normalizeMake(make);
+                const normModel = normalizeModel(normMake, model);
+
+                allListings.push({
+                  vin,
+                  year,
+                  make: normMake,
+                  model: normModel,
+                  trim,
+                  stockNumber,
+                  inventoryType: inventoryType === 'Used' ? 'Used' : 'New',
+                  listPrice,
+                  msrp,
+                  dealerDiscount: msrp && listPrice && msrp > listPrice ? msrp - listPrice : undefined,
+                  vehicleUrl: url,
+                  imageUrl,
+                  dealerId,
+                  dealerName,
+                  extractionSource: 'sitemap_vdp',
+                  discoveredAt: new Date().toISOString()
+                });
+              } catch (err: any) {
+                const urlParts = url.split('/').filter(Boolean);
+                const slug = urlParts[urlParts.length - 1] || '';
+                const slugParts = slug.split('-');
+                const year = parseInt(slugParts[0], 10) || new Date().getFullYear();
+                const make = 'Kia';
+                const model = slugParts[2] ? slugParts[2].toUpperCase() : 'Unknown';
+
+                allListings.push({
+                  vin,
+                  year,
+                  make: normalizeMake(make),
+                  model: normalizeModel('Kia', model),
+                  inventoryType: inventoryType === 'Used' ? 'Used' : 'New',
+                  listPrice: 0,
+                  vehicleUrl: url,
+                  dealerId,
+                  dealerName,
+                  extractionSource: 'sitemap_vdp',
+                  discoveredAt: new Date().toISOString()
+                });
+              }
+            })
+          );
+        }
+        logger.log(`Hydrated ${missingVdpUrls.length} sitemap units. Total inventory count is now ${allListings.length}.`);
+      }
+    } catch (sitemapErr: any) {
+      logger.warn(`Sitemap fallback error: ${sitemapErr.message}`);
+    }
+
+    logger.log(`Successfully completed scrape with ${allListings.length} total listings.`);
     return {
       listings: allListings,
       pagesCrawled: totalPagesCrawled,
