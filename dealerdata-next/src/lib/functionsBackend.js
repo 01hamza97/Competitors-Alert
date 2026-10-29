@@ -684,8 +684,21 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
         nameMap[`comp_${c.competitorKey}`] = c.competitorName;
       }
 
+      // Deduplicate rows by clean dealer key + VIN to prevent duplicate counts from legacy prefixes or re-syncs
+      const seenDealerVins = new Set();
+      const dedupedRows = [];
+      for (const r of rows) {
+        const cleanDealerKey = (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, '');
+        const vinKey = `${cleanDealerKey}_${(r.vin || '').trim().toUpperCase()}`;
+        if (r.vin && seenDealerVins.has(vinKey)) {
+          continue;
+        }
+        if (r.vin) seenDealerVins.add(vinKey);
+        dedupedRows.push(r);
+      }
+
       // Normalized data array expected by ModelInventoryView
-      const formattedData = rows.map((r) => {
+      const formattedData = dedupedRows.map((r) => {
         const cleanDealerKey = (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, '');
         const displayName = nameMap[r.dealerId] || nameMap[cleanDealerKey] || cleanDealerKey;
         nameMap[cleanDealerKey] = displayName;

@@ -22,6 +22,7 @@ const crawler_1 = require("./services/crawler");
 const listingExtractor_1 = require("./services/listingExtractor");
 const dbSync_1 = require("./services/dbSync");
 const playwrightCrawler_1 = require("./services/playwrightCrawler");
+const registry_1 = require("./dealers/registry");
 __exportStar(require("./types"), exports);
 __exportStar(require("./services/platformDetector"), exports);
 __exportStar(require("./services/sitemapDiscovery"), exports);
@@ -32,6 +33,8 @@ __exportStar(require("./services/dbSync"), exports);
 __exportStar(require("./services/htmlSnapshotService"), exports);
 __exportStar(require("./services/playwrightCrawler"), exports);
 __exportStar(require("./services/specialsExtractor"), exports);
+__exportStar(require("./dealers/registry"), exports);
+__exportStar(require("./dealers/types"), exports);
 /**
  * Master Scraping Pipeline (Cascading Multi-Stage Funnel):
  *
@@ -100,10 +103,43 @@ async function scrapeDealership(options) {
     }
     const isDirectInventoryUrl = /inventory|all-inventory|new-vehicles|used-vehicles|searchnew|searchused|searchall/i.test(options.targetUrl);
     const shouldTrySitemapFirst = options.useSitemapFirst === true || (!isDirectInventoryUrl && options.useSitemapFirst !== false);
+    let detectedPlatform = 'unknown';
+    // -------------------------------------------------------------------------
+    // FUNNEL STAGE 0: Dedicated Store / Competitor Inventory Scraper
+    // -------------------------------------------------------------------------
+    const dedicatedScraper = registry_1.DealerInventoryRegistry.getScraper(dealerId, options.targetUrl);
+    if (dedicatedScraper && mode !== 'ai-html') {
+        console.log(`\n🚀 [Dedicated Scraper] Found dedicated scraper module for: ${dedicatedScraper.name} (${dedicatedScraper.id})`);
+        try {
+            const dedicatedResult = await dedicatedScraper.scrape({
+                targetUrl: options.targetUrl,
+                dealerId,
+                dealerName,
+                domain,
+                inventoryType: options.inventoryType || 'New',
+                maxPages: options.maxPages,
+                proxyUrl: dedicatedScraper.useDirectConnection ? undefined : options.proxyUrl,
+                logger: {
+                    log: (msg) => console.log(`   [${dedicatedScraper.id}] ${msg}`),
+                    warn: (msg) => console.warn(`   ⚠️ [${dedicatedScraper.id}] ${msg}`),
+                    error: (msg) => console.error(`   ❌ [${dedicatedScraper.id}] ${msg}`)
+                }
+            });
+            if (dedicatedResult.listings.length > 0) {
+                listings.push(...dedicatedResult.listings);
+                pagesCrawled = dedicatedResult.pagesCrawled;
+                funnelStageUsed = dedicatedResult.engineUsed === 'api' ? 'direct_api' : 'playwright_browser';
+                apiAccessUsed = dedicatedResult.engineUsed === 'api';
+                detectedPlatform = dedicatedScraper.id;
+            }
+        }
+        catch (dedErr) {
+            console.warn(`⚠️ [Dedicated Scraper] Dedicated scrape error: ${dedErr.message}. Falling back to general pipeline...`);
+        }
+    }
     // -------------------------------------------------------------------------
     // FUNNEL STAGE 1: Direct Platform API & Native Feeds
     // -------------------------------------------------------------------------
-    let detectedPlatform = 'unknown';
     if (mode !== 'ai-html' && listings.length === 0 && options.tryDirectApi !== false) {
         console.log(`\n⚡ [Funnel Step 1/4: Direct API & Native Feeds]`);
         console.log(`   Checking known JSON API feeds & provider endpoints for ${domain}...`);

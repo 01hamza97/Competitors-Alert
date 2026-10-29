@@ -45,10 +45,99 @@ class DatabaseSync {
             });
             const snapshotDate = new Date().toISOString().split('T')[0];
             let insertedCount = 0;
-            const cleanDealerId = (dealerId || '').replace(/^store_/, '');
+            const cleanDealerId = (dealerId || '').replace(/^store_/, '').replace(/^comp_/, '');
+            const validDealerKeys = [cleanDealerId, `store_${cleanDealerId}`, `comp_${cleanDealerId}`];
+            // Normalize and deduplicate scraped listings in-memory by VIN
+            const uniqueListingsMap = new Map();
             for (const rawItem of listings) {
                 const item = (0, vehicleNormalization_1.normalizeVehicle)(rawItem);
-                const id = `inv_${cleanDealerId}_${item.vin.trim()}`;
+                const vin = (item.vin || '').trim().toUpperCase();
+                if (vin && !uniqueListingsMap.has(vin)) {
+                    uniqueListingsMap.set(vin, item);
+                }
+            }
+            const activeListings = Array.from(uniqueListingsMap.values());
+            const activeVinSet = new Set(uniqueListingsMap.keys());
+            // 1. Check existing records in MySQL for this dealer on today's snapshot date
+            try {
+                const [existingRows] = await connection.query(`SELECT id, vin, dealer_id, make, model, trim, year, list_price 
+           FROM competitor_vehicle_inventory 
+           WHERE dealer_id IN (?, ?, ?) 
+             AND snapshot_date = ?`, [cleanDealerId, `store_${cleanDealerId}`, `comp_${cleanDealerId}`, snapshotDate]);
+                if (Array.isArray(existingRows) && existingRows.length > 0) {
+                    const staleRowIds = [];
+                    const duplicateRowIds = [];
+                    const soldVehicles = [];
+                    for (const row of existingRows) {
+                        const rowVin = (row.vin || '').trim().toUpperCase();
+                        if (!activeVinSet.has(rowVin)) {
+                            // Present in today's DB snapshot but no longer on live website (Sold / Delisted)
+                            staleRowIds.push(row.id);
+                            soldVehicles.push({
+                                vin: rowVin,
+                                year: row.year,
+                                make: row.make,
+                                model: row.model,
+                                trim: row.trim,
+                                listPrice: row.list_price
+                            });
+                        }
+                        else if (row.dealer_id !== cleanDealerId || row.id !== `inv_${cleanDealerId}_${rowVin}`) {
+                            // Legacy/cross-prefix duplicate row (e.g., comp_pomona_kia vs pomona_kia)
+                            duplicateRowIds.push(row.id);
+                        }
+                    }
+                    if (staleRowIds.length > 0) {
+                        console.log(`[DatabaseSync] 🚗 Detected ${staleRowIds.length} sold/delisted vehicles no longer in inventory. Purging from active snapshot ${snapshotDate}...`);
+                        if (soldVehicles.length <= 10) {
+                            console.log(`[DatabaseSync] Sold vehicles detail:`, soldVehicles.map(v => `${v.year} ${v.make} ${v.model} (${v.vin})`).join(', '));
+                        }
+                        for (let i = 0; i < staleRowIds.length; i += 500) {
+                            const chunk = staleRowIds.slice(i, i + 500);
+                            await connection.query(`DELETE FROM competitor_vehicle_inventory WHERE id IN (?)`, [chunk]);
+                        }
+                    }
+                    if (duplicateRowIds.length > 0) {
+                        console.log(`[DatabaseSync] 🧹 Pruning ${duplicateRowIds.length} cross-prefix duplicate rows for dealer ${cleanDealerId}...`);
+                        for (let i = 0; i < duplicateRowIds.length; i += 500) {
+                            const chunk = duplicateRowIds.slice(i, i + 500);
+                            await connection.query(`DELETE FROM competitor_vehicle_inventory WHERE id IN (?)`, [chunk]);
+                        }
+                    }
+                }
+            }
+            catch (err) {
+                console.warn(`[DatabaseSync] Warning while pruning stale snapshot rows:`, err.message);
+            }
+            // 2. Turnover calculation vs previous snapshot date
+            try {
+                const [prevSnapRows] = await connection.query(`SELECT snapshot_date 
+           FROM competitor_vehicle_inventory 
+           WHERE dealer_id IN (?, ?, ?) 
+             AND snapshot_date < ? 
+           GROUP BY snapshot_date 
+           ORDER BY snapshot_date DESC 
+           LIMIT 1`, [cleanDealerId, `store_${cleanDealerId}`, `comp_${cleanDealerId}`, snapshotDate]);
+                if (Array.isArray(prevSnapRows) && prevSnapRows.length > 0) {
+                    const prevDate = prevSnapRows[0].snapshot_date;
+                    const [prevVins] = await connection.query(`SELECT vin FROM competitor_vehicle_inventory 
+             WHERE dealer_id IN (?, ?, ?) AND snapshot_date = ?`, [cleanDealerId, `store_${cleanDealerId}`, `comp_${cleanDealerId}`, prevDate]);
+                    const prevVinSet = new Set(prevVins.map((r) => (r.vin || '').trim().toUpperCase()));
+                    let soldTurnoverCount = 0;
+                    for (const pVin of prevVinSet) {
+                        if (!activeVinSet.has(pVin))
+                            soldTurnoverCount++;
+                    }
+                    console.log(`[Sales Velocity] Compared with previous snapshot (${prevDate}): ${soldTurnoverCount} units sold/delisted, ${activeListings.length} active in current snapshot.`);
+                }
+            }
+            catch (err) {
+                // Non-blocking
+            }
+            // 3. Upsert active listings
+            for (const item of activeListings) {
+                const cleanVin = item.vin.trim();
+                const id = `inv_${cleanDealerId}_${cleanVin}`;
                 const domain = (0, domain_1.normalizeDomain)(item.vehicleUrl || '');
                 const query = `
           INSERT INTO competitor_vehicle_inventory (
@@ -85,7 +174,7 @@ class DatabaseSync {
                     id,
                     cleanDealerId,
                     snapshotDate,
-                    item.vin,
+                    cleanVin,
                     item.stockNumber || null,
                     item.year,
                     cleanMake,
