@@ -880,14 +880,54 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
               model = 'Expedition';
             } else if (/^f-?150/i.test(model)) {
               model = 'F-150';
+              if (/lariat/i.test(fullText)) trim = 'Lariat';
             } else if (/^f-?250/i.test(model)) {
               model = 'F-250 Super Duty';
+              if (/lariat/i.test(fullText)) trim = 'Lariat';
             } else if (/^f-?350/i.test(model)) {
               model = 'F-350 Super Duty';
+              if (/lariat/i.test(fullText)) trim = 'Lariat';
+            } else if (/^f-?450/i.test(model)) {
+              model = 'F-450 Super Duty';
+              if (/lariat/i.test(fullText)) trim = 'Lariat';
             } else if (/^maverick/i.test(model)) {
               model = 'Maverick';
+              if (/lariat/i.test(fullText)) trim = 'Lariat';
+            } else if (/^ranger/i.test(model)) {
+              model = 'Ranger';
+              if (/lariat/i.test(fullText)) trim = 'Lariat';
             } else if (/^mustang/i.test(model)) {
               model = 'Mustang';
+            } else if (/^transit/i.test(model) || /\btransit\b/i.test(fullText)) {
+              model = 'Transit';
+              if (/passenger\s*van\s*xl\b/i.test(fullText) || (/passenger/i.test(fullText) && /\bxl\b/i.test(fullText))) {
+                trim = 'Passenger Van XL';
+              } else if (/passenger\s*van\s*xlt\b/i.test(fullText) || (/passenger/i.test(fullText) && /\bxlt\b/i.test(fullText))) {
+                trim = 'Passenger Van XLT';
+              } else if (/passenger/i.test(fullText)) {
+                trim = trim ? `Passenger Van ${trim.replace(/passenger\s*(van)?\s*/i, '')}`.trim() : 'Passenger Van';
+              } else if (/cargo/i.test(fullText)) {
+                trim = trim ? `Cargo Van ${trim.replace(/cargo\s*(van)?\s*/i, '')}`.trim() : 'Cargo Van';
+              }
+            } else if (/^lariat/i.test(model)) {
+              if (/f-?350/i.test(fullText)) {
+                model = 'F-350 Super Duty';
+              } else if (/f-?250/i.test(fullText)) {
+                model = 'F-250 Super Duty';
+              } else if (/f-?450/i.test(fullText)) {
+                model = 'F-450 Super Duty';
+              } else if (/f-?150/i.test(fullText)) {
+                model = 'F-150';
+              } else if (/super\s*duty/i.test(fullText)) {
+                model = 'F-250 Super Duty';
+              } else if (/maverick/i.test(fullText)) {
+                model = 'Maverick';
+              } else if (/ranger/i.test(fullText)) {
+                model = 'Ranger';
+              } else {
+                model = 'F-250 Super Duty';
+              }
+              trim = 'Lariat';
             }
           }
 
@@ -973,15 +1013,49 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
 
           const offerType = stagedApr != null && stagedMonthly == null ? 'APR' : (aiParsed.offer_type || aiParsed.special_type || 'Visual Flyer');
 
+          let stagedMake = aiParsed.make || null;
+          let stagedModel = aiParsed.model || 'Visual Special';
+          let stagedTrim = aiParsed.trim || null;
+          const stagedFullText = `${aiParsed.title || ''} ${stagedModel} ${stagedTrim || ''} ${s.rawText || ''}`.toLowerCase();
+
+          if (stagedMake && stagedMake.toLowerCase() === 'ford') {
+            if (/^transit/i.test(stagedModel) || /\btransit\b/i.test(stagedFullText)) {
+              stagedModel = 'Transit';
+              if (/passenger\s*van\s*xl\b/i.test(stagedFullText) || (/passenger/i.test(stagedFullText) && /\bxl\b/i.test(stagedFullText))) {
+                stagedTrim = 'Passenger Van XL';
+              } else if (/passenger\s*van\s*xlt\b/i.test(stagedFullText) || (/passenger/i.test(stagedFullText) && /\bxlt\b/i.test(stagedFullText))) {
+                stagedTrim = 'Passenger Van XLT';
+              } else if (/passenger/i.test(stagedFullText)) {
+                stagedTrim = stagedTrim ? `Passenger Van ${stagedTrim.replace(/passenger\s*(van)?\s*/i, '')}`.trim() : 'Passenger Van';
+              }
+            } else if (/^lariat/i.test(stagedModel)) {
+              if (/f-?350/i.test(stagedFullText)) stagedModel = 'F-350 Super Duty';
+              else if (/f-?250/i.test(stagedFullText)) stagedModel = 'F-250 Super Duty';
+              else if (/f-?450/i.test(stagedFullText)) stagedModel = 'F-450 Super Duty';
+              else if (/f-?150/i.test(stagedFullText)) stagedModel = 'F-150';
+              else if (/super\s*duty/i.test(stagedFullText)) stagedModel = 'F-250 Super Duty';
+              else if (/maverick/i.test(stagedFullText)) stagedModel = 'Maverick';
+              else if (/ranger/i.test(stagedFullText)) stagedModel = 'Ranger';
+              else stagedModel = 'F-250 Super Duty';
+              stagedTrim = 'Lariat';
+            } else if (/^f-?250/i.test(stagedModel)) {
+              stagedModel = 'F-250 Super Duty';
+              if (/lariat/i.test(stagedFullText)) stagedTrim = 'Lariat';
+            } else if (/^f-?350/i.test(stagedModel)) {
+              stagedModel = 'F-350 Super Duty';
+              if (/lariat/i.test(stagedFullText)) stagedTrim = 'Lariat';
+            }
+          }
+
           return {
             id: s.id,
             dealer_id: s.dealerId,
             offer_dealer_name: matchedDealerName,
             snapshot_date: s.snapshotDate,
             year: aiParsed.year || null,
-            make: aiParsed.make || null,
-            model: aiParsed.model || 'Visual Special',
-            trim: aiParsed.trim || null,
+            make: stagedMake,
+            model: stagedModel,
+            trim: stagedTrim,
             special_type: 'visual',
             offer_type: offerType,
             monthly_payment: stagedMonthly,

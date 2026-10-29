@@ -326,6 +326,18 @@ const CANONICAL_MODELS_BY_MAKE = {
         'transit-150': 'Transit',
         'transit-250': 'Transit',
         'transit-350': 'Transit',
+        'transit-150 passenger': 'Transit',
+        'transit-250 passenger': 'Transit',
+        'transit-350 passenger': 'Transit',
+        'transit passenger': 'Transit',
+        'transit passenger van': 'Transit',
+        'transit cargo': 'Transit',
+        'transit cargo van': 'Transit',
+        'transit cutaway': 'Transit',
+        'transit-150 cargo': 'Transit',
+        'transit-250 cargo': 'Transit',
+        'transit-350 cargo': 'Transit',
+        'transit connect': 'Transit Connect',
         'chassis cab': 'Chassis Cab',
         'e-series': 'E-Series',
         'e-series cutaway': 'E-Series',
@@ -586,20 +598,100 @@ function normalizeVehicle(vehicle) {
             }
         }
     }
-    // Handle Ford "Super Duty" series when model is "Super" / "Super Duty" / "F-xxx Super Duty"
-    // and trim or vehicle_url specifies F-250 / F-350 / F-450 / F-550 / F-600
-    if (normMake === 'Ford' && (finalModel.toLowerCase().includes('super duty') || finalModel.toLowerCase() === 'super' || finalModel.toLowerCase() === 'f-series sd')) {
-        // cleanRawString already strips ® so F-250® becomes F-250
-        const dutyMatch = (rawTrim || '').match(/(F-?\d{3})/i)
-            || (rawModel || '').match(/(F-?\d{3})/i)
-            || ((vehicle.vehicle_url || vehicle.vehicleUrl || '').match(/Super[+-]Duty[+-](F[-+ ]?\d{3})/i));
-        if (dutyMatch) {
-            const series = dutyMatch[1].toUpperCase().replace(/^F-?(\d)/, 'F-$1');
-            finalModel = `${series} Super Duty`;
-            rawTrim = (rawTrim || '')
-                .replace(/Duty\s*/i, '')
-                .replace(new RegExp(`F-?${series.replace('F-', '')}\s*`, 'i'), '')
-                .trim();
+    // ── Ford Model Normalization & Disambiguation ──
+    if (normMake === 'Ford') {
+        const vUrl = (vehicle.vehicle_url || vehicle.vehicleUrl || '').toLowerCase();
+        const vTitle = (vehicle.title || vehicle.raw_title || vehicle.name || '').toLowerCase();
+        const fordContext = `${rawModel} ${rawTrim || ''} ${vUrl} ${vTitle}`.toLowerCase();
+        // 1. Handle "Lariat" when erroneously placed as model (Lariat is a trim for F-150, F-250, F-350, Maverick, Ranger)
+        if (/^lariat\b/i.test(finalModel) || lowerModel === 'lariat') {
+            let detectedModel = '';
+            const seriesMatch = fordContext.match(/\b(f-?\s?\d{3})\b/i);
+            if (seriesMatch) {
+                const code = seriesMatch[1].toUpperCase().replace(/^F-?\s?(\d)/, 'F-$1');
+                if (code === 'F-150') {
+                    detectedModel = 'F-150';
+                }
+                else {
+                    detectedModel = `${code} Super Duty`;
+                }
+                if (rawTrim) {
+                    rawTrim = rawTrim.replace(new RegExp(`\\b${seriesMatch[1]}\\b`, 'i'), '')
+                        .replace(/super\s*duty/i, '')
+                        .trim();
+                }
+            }
+            else if (fordContext.includes('super duty')) {
+                detectedModel = 'F-250 Super Duty';
+            }
+            else if (fordContext.includes('maverick')) {
+                detectedModel = 'Maverick';
+            }
+            else if (fordContext.includes('ranger')) {
+                detectedModel = 'Ranger';
+            }
+            else if (fordContext.includes('f-150') || fordContext.includes('f150')) {
+                detectedModel = 'F-150';
+            }
+            else {
+                detectedModel = 'F-250 Super Duty';
+            }
+            finalModel = detectedModel;
+            if (!rawTrim || !/lariat/i.test(rawTrim)) {
+                rawTrim = rawTrim ? `Lariat ${rawTrim}`.trim() : 'Lariat';
+            }
+        }
+        // 2. Handle Ford Super Duty / F-Series models (e.g. "F-250 Lariat", "F-350 Lariat", "Super Duty", "F-Series SD")
+        const dutyMatch = (rawTrim || '').match(/\b(F-?\d{3})\b/i)
+            || (rawModel || '').match(/\b(F-?\d{3})\b/i)
+            || (vUrl.match(/Super[+-]Duty[+-](F[-+ ]?\d{3})/i))
+            || (vUrl.match(/\b(F-?\d{3})\b/i));
+        if (finalModel.toLowerCase().includes('super duty') || finalModel.toLowerCase() === 'super' || finalModel.toLowerCase() === 'f-series sd' || /\bf-?[2-6]\d{2}\b/i.test(finalModel)) {
+            if (dutyMatch) {
+                const series = dutyMatch[1].toUpperCase().replace(/^F-?(\d)/, 'F-$1');
+                if (series !== 'F-150') {
+                    finalModel = `${series} Super Duty`;
+                    // If model had extra trim text like "Lariat", preserve it in trim
+                    const extra = rawModel.replace(new RegExp(`\\b${dutyMatch[1]}\\b`, 'i'), '')
+                        .replace(/super\s*duty/i, '')
+                        .trim();
+                    if (extra && (!rawTrim || !rawTrim.toLowerCase().includes(extra.toLowerCase()))) {
+                        rawTrim = rawTrim ? `${extra} ${rawTrim}`.trim() : extra;
+                    }
+                    rawTrim = (rawTrim || '')
+                        .replace(/Duty\s*/i, '')
+                        .replace(new RegExp(`F-?${series.replace('F-', '')}\\s*`, 'i'), '')
+                        .trim();
+                }
+            }
+        }
+        // 3. Handle F-150 when model includes trim (e.g. "F-150 Lariat", "F-150 XLT")
+        if (/^f-?150\s+/i.test(finalModel)) {
+            const extra = rawModel.replace(/^f-?150\s*/i, '').trim();
+            finalModel = 'F-150';
+            if (extra && (!rawTrim || !rawTrim.toLowerCase().includes(extra.toLowerCase()))) {
+                rawTrim = rawTrim ? `${extra} ${rawTrim}`.trim() : extra;
+            }
+        }
+        // 4. Handle Ford Transit variations (e.g. "Transit-350 Passenger", "Transit Commercial", "Transit Na", "Transit-250")
+        if (lowerModel.startsWith('transit') && !lowerModel.includes('transit connect')) {
+            finalModel = 'Transit';
+            let modelDetail = rawModel.replace(/^transit(?:-\d{3})?\s*/i, '').trim();
+            if (modelDetail) {
+                if (/^passenger$/i.test(modelDetail))
+                    modelDetail = 'Passenger Van';
+                if (!rawTrim) {
+                    rawTrim = modelDetail;
+                }
+                else if (!rawTrim.toLowerCase().includes(modelDetail.toLowerCase())) {
+                    if (/passenger/i.test(modelDetail) && !/passenger/i.test(rawTrim)) {
+                        rawTrim = `Passenger Van ${rawTrim}`.trim();
+                    }
+                    else {
+                        rawTrim = `${modelDetail} ${rawTrim}`.trim();
+                    }
+                }
+            }
         }
     }
     // Handle Ford "Chassis Cab" and commercial stake body / dump upfits in model name
@@ -636,13 +728,6 @@ function normalizeVehicle(vehicle) {
                 .replace(/^w\/\s*/i, '')
                 .replace(/^with\s*/i, '')
                 .trim();
-        }
-    }
-    // Handle Ford Transit Van variations in model name
-    if (normMake === 'Ford' && (lowerModel.startsWith('transit van') || lowerModel.startsWith('transit commercial') || lowerModel === 'transit na')) {
-        finalModel = 'Transit';
-        if (!rawTrim && (lowerModel.startsWith('transit van') || lowerModel.startsWith('transit commercial'))) {
-            rawTrim = rawModel.replace(/^transit\s+(van|commercial)\s*/i, '').trim();
         }
     }
     // Handle Ford Explorer Police Interceptor
