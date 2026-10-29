@@ -50,36 +50,41 @@ class PrinceFrederickFordScraper {
         const { targetUrl, dealerId, dealerName, domain, logger } = ctx;
         const cheerio = await Promise.resolve().then(() => __importStar(require('cheerio')));
         let html = ctx.html || '';
-        // 1. If HTML wasn't already loaded or provided in context, attempt fast render via ZenRows API
-        if (!html) {
-            const apiKey = process.env.ZENROWS_API_KEY || '6ecae7778b309ecac79a32c25bc77b94a86c07a3';
-            const waitSelector = targetUrl.includes('newspecial')
-                ? '.disc-blue-wrap'
-                : '.sb-slide';
-            logger.log(`Fetching ${dealerName} via ZenRows API (js_render=true, wait_for=${waitSelector})...`);
-            try {
-                const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${apiKey}&url=${encodeURIComponent(targetUrl)}&js_render=true&wait_for=${encodeURIComponent(waitSelector)}`;
-                const resp = await axios_1.default.get(zenrowsUrl, { timeout: 45000 });
-                if (resp.data && typeof resp.data === 'string' && (resp.data.includes('sb-slide') || resp.data.includes('disc-blue-wrap') || resp.data.includes('carousel-Main'))) {
-                    html = resp.data;
-                }
-            }
-            catch (zenErr) {
-                logger.warn(`ZenRows fetch notice: ${zenErr.message}`);
+        // 1. Directly fetch RetailReady / StreamCompanies top carousel API
+        let retailReadyHtml = '';
+        try {
+            const rrResp = await axios_1.default.post('https://api-incentives.retailready.ai/api/carousel?v2&columns=3', {}, {
+                headers: {
+                    'Authorization': 'Bearer 363c6dbe12ac26669512a3d9f7aef0ee34323133',
+                    'Referer': 'https://www.princefrederickford.com/',
+                    'Origin': 'https://www.princefrederickford.com',
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'sec-ch-ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+                    'sec-ch-ua-platform': '"macOS"',
+                    'sec-ch-ua-mobile': '?0'
+                },
+                timeout: 10000
+            });
+            if (rrResp.data && rrResp.data.status === 'valid' && rrResp.data.content) {
+                retailReadyHtml = rrResp.data.content;
+                logger.log(`Directly fetched RetailReady top carousel API (${retailReadyHtml.length} bytes).`);
             }
         }
-        // 2. If still no HTML and browser page context exists, wait for widgets in Playwright
-        if (!html && ctx.page) {
+        catch (rrErr) {
+            logger.warn(`RetailReady carousel direct API notice: ${rrErr.message}`);
+        }
+        // 2. If browser page context exists and top carousel is missing, wait for it to hydrate in Playwright
+        if (ctx.page && (!html || !html.includes('sb-slide'))) {
             try {
-                await ctx.page.waitForSelector('#carousel-Main, .sb-slide, .disc-blue-wrap', { timeout: 15000 }).catch(() => { });
-                await ctx.page.waitForTimeout(1200);
+                await ctx.page.waitForSelector('.sb-slide, .sb-slider-container, #carousel-Main', { timeout: 12000 }).catch(() => { });
+                await ctx.page.waitForTimeout(1000);
                 html = await ctx.page.content();
             }
             catch (waitErr) {
                 logger.warn(`Browser DOM wait notice: ${waitErr.message}`);
             }
         }
-        // 3. Fallback to direct HTTP GET for DealerOn static carousel if neither succeeded
+        // 3. If HTML wasn't already loaded, attempt direct HTTP GET for DealerOn static carousel
         if (!html) {
             try {
                 logger.log(`Attempting direct HTTP fetch for ${dealerName}...`);
@@ -96,9 +101,28 @@ class PrinceFrederickFordScraper {
                 logger.warn(`Direct fetch notice: ${httpErr.message}`);
             }
         }
-        if (!html && !ctx.page) {
+        // 4. Fallback to ZenRows API only if process.env.ZENROWS_API_KEY is configured
+        if (!html && process.env.ZENROWS_API_KEY) {
+            const waitSelector = targetUrl.includes('newspecial') ? '.disc-blue-wrap' : '.sb-slide';
+            logger.log(`Fetching ${dealerName} via ZenRows API (js_render=true, wait_for=${waitSelector})...`);
+            try {
+                const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${process.env.ZENROWS_API_KEY}&url=${encodeURIComponent(targetUrl)}&js_render=true&wait_for=${encodeURIComponent(waitSelector)}`;
+                const resp = await axios_1.default.get(zenrowsUrl, { timeout: 45000 });
+                if (resp.data && typeof resp.data === 'string' && (resp.data.includes('sb-slide') || resp.data.includes('disc-blue-wrap') || resp.data.includes('carousel-Main'))) {
+                    html = resp.data;
+                }
+            }
+            catch (zenErr) {
+                logger.warn(`ZenRows fetch notice: ${zenErr.message}`);
+            }
+        }
+        if (!html && !ctx.page && !retailReadyHtml) {
             logger.log(`Browser context required for DOM extraction. Delegating to Playwright...`);
             return { htmlSpecials: [], visualSpecials: [] };
+        }
+        // Append RetailReady carousel content if not already present in the HTML DOM
+        if (retailReadyHtml && (!html || !html.includes('sb-slide'))) {
+            html = (html || '') + '\n' + retailReadyHtml;
         }
         if (!html) {
             logger.warn(`Could not retrieve rendered HTML for ${dealerName}.`);
