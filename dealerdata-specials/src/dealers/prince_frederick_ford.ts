@@ -23,7 +23,31 @@ export class PrinceFrederickFordScraper implements DealerSpecialsScraper {
     const cheerio = await import('cheerio');
     let html = ctx.html || '';
 
-    // 1. Directly fetch RetailReady / StreamCompanies top carousel API
+    // 1. Resolve RetailReady public client key (dynamically from DOM script, env, or default)
+    let rrKey = process.env.RETAILREADY_API_KEY || '363c6dbe12ac26669512a3d9f7aef0ee34323133';
+    if (html) {
+      const keyMatch =
+        html.match(/loadRRCarousel\.min\.js\?key=([a-f0-9]+)/i) ||
+        html.match(/retailready\.ai\/[^"'\s]*key=([a-f0-9]+)/i);
+      if (keyMatch && keyMatch[1]) {
+        rrKey = keyMatch[1];
+      }
+    }
+    if (ctx.page) {
+      try {
+        const liveKey = await ctx.page.evaluate(() => {
+          const s = document.querySelector('script[src*="loadRRCarousel"]') as HTMLScriptElement;
+          if (s && s.src) {
+            const m = s.src.match(/key=([a-f0-9]+)/i);
+            return m ? m[1] : null;
+          }
+          return null;
+        }).catch(() => null);
+        if (liveKey) rrKey = liveKey;
+      } catch {}
+    }
+
+    // 2. Directly fetch RetailReady / StreamCompanies top carousel API
     let retailReadyHtml = '';
     try {
       const rrResp = await axios.post(
@@ -31,7 +55,7 @@ export class PrinceFrederickFordScraper implements DealerSpecialsScraper {
         {},
         {
           headers: {
-            'Authorization': 'Bearer 363c6dbe12ac26669512a3d9f7aef0ee34323133',
+            'Authorization': `Bearer ${rrKey}`,
             'Referer': 'https://www.princefrederickford.com/',
             'Origin': 'https://www.princefrederickford.com',
             'User-Agent':
@@ -45,13 +69,13 @@ export class PrinceFrederickFordScraper implements DealerSpecialsScraper {
       );
       if (rrResp.data && rrResp.data.status === 'valid' && rrResp.data.content) {
         retailReadyHtml = rrResp.data.content;
-        logger.log(`Directly fetched RetailReady top carousel API (${retailReadyHtml.length} bytes).`);
+        logger.log(`Directly fetched RetailReady top carousel API using key ${rrKey.slice(0, 8)}... (${retailReadyHtml.length} bytes).`);
       }
     } catch (rrErr: any) {
-      logger.warn(`RetailReady carousel direct API notice: ${rrErr.message}`);
+      logger.warn(`RetailReady direct API fetch notice (${rrErr.message}). Relying on browser hydration fallback.`);
     }
 
-    // 2. If browser page context exists and top carousel is missing, wait for it to hydrate in Playwright
+    // 3. If browser page context exists and top carousel is missing, wait for it to hydrate in Playwright
     if (ctx.page && (!html || !html.includes('sb-slide'))) {
       try {
         await ctx.page.waitForSelector('.sb-slide, .sb-slider-container, #carousel-Main', { timeout: 12000 }).catch(() => {});
