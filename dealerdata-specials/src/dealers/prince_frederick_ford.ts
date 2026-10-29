@@ -4,6 +4,7 @@ import {
   CompetitorVehicleSpecial,
   StagedVisualSpecial
 } from './types';
+import axios from 'axios';
 import crypto from 'crypto';
 
 export class PrinceFrederickFordScraper implements DealerSpecialsScraper {
@@ -11,7 +12,7 @@ export class PrinceFrederickFordScraper implements DealerSpecialsScraper {
   readonly name = 'Prince Frederick Ford';
   readonly domain = 'princefrederickford.com';
   readonly specialsUrls = [
-    'https://www.princefrederickford.com/newspecials.html'
+    'https://www.princefrederickford.com/'
   ];
 
   async scrape(ctx: ScrapeContext): Promise<{
@@ -19,275 +20,262 @@ export class PrinceFrederickFordScraper implements DealerSpecialsScraper {
     visualSpecials: StagedVisualSpecial[];
   }> {
     const { targetUrl, dealerId, dealerName, domain, logger } = ctx;
+    const cheerio = await import('cheerio');
+    let html = ctx.html || '';
 
-    // 1. If no browser page provided yet, return empty so index.ts boots Playwright and passes page
-    if (!ctx.page) {
+    // 1. If HTML wasn't already loaded or provided in context, attempt fast render via ZenRows API
+    if (!html) {
+      const apiKey = process.env.ZENROWS_API_KEY || '6ecae7778b309ecac79a32c25bc77b94a86c07a3';
+      const waitSelector = targetUrl.includes('newspecial')
+        ? '.disc-blue-wrap'
+        : '.sb-slide';
+      logger.log(`Fetching ${dealerName} via ZenRows API (js_render=true, wait_for=${waitSelector})...`);
+      try {
+        const zenrowsUrl = `https://api.zenrows.com/v1/?apikey=${apiKey}&url=${encodeURIComponent(targetUrl)}&js_render=true&wait_for=${encodeURIComponent(waitSelector)}`;
+        const resp = await axios.get(zenrowsUrl, { timeout: 45000 });
+        if (resp.data && typeof resp.data === 'string' && (resp.data.includes('sb-slide') || resp.data.includes('disc-blue-wrap') || resp.data.includes('carousel-Main'))) {
+          html = resp.data;
+        }
+      } catch (zenErr: any) {
+        logger.warn(`ZenRows fetch notice: ${zenErr.message}`);
+      }
+    }
+
+    // 2. If still no HTML and browser page context exists, wait for widgets in Playwright
+    if (!html && ctx.page) {
+      try {
+        await ctx.page.waitForSelector('#carousel-Main, .sb-slide, .disc-blue-wrap', { timeout: 15000 }).catch(() => {});
+        await ctx.page.waitForTimeout(1200);
+        html = await ctx.page.content();
+      } catch (waitErr: any) {
+        logger.warn(`Browser DOM wait notice: ${waitErr.message}`);
+      }
+    }
+
+    // 3. Fallback to direct HTTP GET for DealerOn static carousel if neither succeeded
+    if (!html) {
+      try {
+        logger.log(`Attempting direct HTTP fetch for ${dealerName}...`);
+        const resp = await axios.get(targetUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+          },
+          timeout: 20000
+        });
+        html = resp.data;
+      } catch (httpErr: any) {
+        logger.warn(`Direct fetch notice: ${httpErr.message}`);
+      }
+    }
+
+    if (!html && !ctx.page) {
       logger.log(`Browser context required for DOM extraction. Delegating to Playwright...`);
       return { htmlSpecials: [], visualSpecials: [] };
     }
 
-    const page = ctx.page;
-    logger.log(`Executing DOM specials extraction for ${dealerName} (${dealerId})...`);
-
-    // 2. Wait for async disclaimer banner widget and coupon cards to hydrate
-    try {
-      await page.waitForSelector('.card__coupon, [id^="special--"]', { timeout: 10000 }).catch(() => {});
-      // RetailReady disclaimer banners are injected asynchronously via external script
-      logger.log(`Waiting for disclaimer banners (.disc-blue-wrap)...`);
-      await page.waitForSelector('.disc-blue-wrap', { timeout: 12000 }).catch(() => {});
-      await page.waitForTimeout(1500);
-
-      const inPageBanners = await page.evaluate(() => document.querySelectorAll('.disc-blue-wrap, [data-disclaimer-id]').length);
-      logger.log(`In-page disclaimer banners found: ${inPageBanners}`);
-
-      // Progressive scroll down to hydrate lazy loaded vehicle photos and widgets
-      await page.evaluate(async () => {
-        const distance = 450;
-        const delay = 120;
-        const totalHeight = document.body.scrollHeight;
-        let currentPosition = 0;
-
-        while (currentPosition < totalHeight) {
-          window.scrollBy(0, distance);
-          currentPosition += distance;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
-      });
-      await page.waitForTimeout(800);
-    } catch (scrollErr: any) {
-      logger.warn(`Notice while hydrating DOM/images: ${scrollErr.message}`);
+    if (!html) {
+      logger.warn(`Could not retrieve rendered HTML for ${dealerName}.`);
+      return { htmlSpecials: [], visualSpecials: [] };
     }
 
-    // 3. Extract loaded DOM with Cheerio
-    const cheerio = await import('cheerio');
-    const hydratedHtml = await page.content();
-    const $ = (cheerio.load || (cheerio as any).default?.load)(hydratedHtml);
-
+    const $ = (cheerio.load || (cheerio as any).default?.load)(html);
     const visualSpecials: StagedVisualSpecial[] = [];
     const seenIds = new Set<string>();
     const today = new Date().toISOString().split('T')[0];
 
     // ==========================================
-    // SECTION 1: Top Disclaimer Offer Banners (.disc-blue-wrap)
+    // SECTION 1: Top StreamCompanies / RetailReady Visual Campaign Banners (.sb-slide / .disc-blue-wrap)
     // ==========================================
-    const banners = $('.disc-blue-wrap, [data-disclaimer-id]');
-    logger.log(`Processing ${banners.length} top disclaimer offer banner(s)...`);
+    const streamBanners = $('.sb-slide, .disc-blue-wrap');
+    logger.log(`Processing ${streamBanners.length} top stream disclaimer offer element(s)...`);
 
-    banners.each((i, el) => {
+    streamBanners.each((i, el) => {
       const banner = $(el);
-      const disclaimerId = banner.attr('data-disclaimer-id') || `disc_${i + 1}`;
+      const disclaimerId =
+        banner.attr('data-disclaimer-id') ||
+        banner.find('[data-disclaimer-id]').attr('data-disclaimer-id') ||
+        `disc_${i + 1}`;
+
       if (seenIds.has(disclaimerId)) return;
       seenIds.add(disclaimerId);
 
-      // A. Extract Title
-      const headerTitle = banner.find('.disc-body header').text().replace(/\s+/g, ' ').trim();
-      const title = headerTitle || `${dealerName} Special #${i + 1}`;
-
-      // B. Extract VIN & Stock Number
-      const numbersText = banner.find('.disc-numbers').text().replace(/\s+/g, ' ').trim();
-      const vinMatch = numbersText.match(/VIN\s+([A-HJ-NPR-Z0-9]{17})/i);
-      const vin = vinMatch ? vinMatch[1].toUpperCase() : '';
-      const stkMatch = numbersText.match(/STK\s+([A-Z0-9]+)/i);
-      const stock = stkMatch ? stkMatch[1] : '';
-
-      // C. Extract Deal Info
-      const dealHeader = banner.find('.disc-info-header').text().trim();
-      const dealContent = banner.find('.disc-info-content').text().trim();
-      const dealFooter = banner.find('.disc-info-footer').text().trim();
-      const offerSummary = [dealHeader, dealContent, dealFooter].filter(Boolean).join(' ');
-
-      // D. Extract Legal Disclaimer
-      const disclaimer = banner.find('footer .disc-disc').text().replace(/\s+/g, ' ').trim();
-
-      // E. Extract Image (Hero vehicle image or banner image)
-      const heroImg = banner.find('.hero-img img, img.disc-bg').first();
-      let imgSrc = heroImg.attr('src') || heroImg.attr('data-src') || '';
-      if (imgSrc && !imgSrc.startsWith('http')) {
-        try {
-          imgSrc = new URL(imgSrc, targetUrl).href;
-        } catch {}
-      }
-
-      // F. Destination URL
-      let destUrl = banner.find('a.disc-btn').attr('href') || targetUrl;
+      const img = banner.find('img').first();
+      let rawImg = (img.attr('src') || img.attr('data-src') || '').replace(/&amp;/g, '&');
+      let alt = (img.attr('alt') || '').trim();
+      const a = banner.find('a').first();
+      let destUrl = a.attr('href') || targetUrl;
       if (destUrl && !destUrl.startsWith('http')) {
+        try { destUrl = new URL(destUrl, targetUrl).href; } catch {}
+      }
+
+      let title = alt;
+      let disclaimer = '';
+      let vin = '';
+      let apr = '';
+      let cleanImageUrl = rawImg;
+
+      // Case A: StreamCompanies Scene7 dynamically rendered flyer (found in #sb-slider on homepage)
+      if (rawImg.includes('scene7.com')) {
         try {
-          destUrl = new URL(destUrl, targetUrl).href;
+          const urlObj = new URL(rawImg);
+          disclaimer = urlObj.searchParams.get('$DISCLAIMER') || '';
+          vin = urlObj.searchParams.get('$VehicleVIN') || '';
+          apr = urlObj.searchParams.get('$apr') || '';
+          const vehicle = (urlObj.searchParams.get('$VEHICLE') || '').replace(/_/g, ' ');
+          if (vehicle && (!title || title.length < 5)) title = vehicle;
         } catch {}
       }
 
-      const textParts = [
-        title,
+      // Case B: RetailReady HTML structure (found in .disc-blue-wrap on specials page)
+      if (banner.hasClass('disc-blue-wrap')) {
+        const headerTitle = banner.find('.disc-body header').text().replace(/\s+/g, ' ').trim();
+        if (headerTitle) title = headerTitle;
+
+        const numbersText = banner.find('.disc-numbers').text().replace(/\s+/g, ' ').trim();
+        const vinMatch = numbersText.match(/VIN\s+([A-HJ-NPR-Z0-9]{17})/i);
+        if (vinMatch) vin = vinMatch[1].toUpperCase();
+
+        const dText = banner.find('footer .disc-disc').text().replace(/\s+/g, ' ').trim();
+        if (dText) disclaimer = dText;
+
+        const heroImg = banner.find('.hero-img img').attr('src') || banner.find('.disc-bg').attr('src');
+        if (heroImg) cleanImageUrl = heroImg;
+      }
+
+      if (!title) title = `${dealerName} Special #${i + 1}`;
+      if (!cleanImageUrl) return;
+
+      const rawText = [
+        `Offer Title: ${title}`,
         vin ? `VIN: ${vin}` : '',
-        stock ? `Stock #: ${stock}` : '',
-        offerSummary ? `Offer: ${offerSummary}` : '',
-        disclaimer ? `Legal Disclaimer:\n${disclaimer}` : '',
-        `Vehicle URL: ${destUrl}`
-      ].filter(Boolean);
+        apr ? `APR Financing: ${apr}` : '',
+        disclaimer ? `Disclaimer: ${disclaimer}` : '',
+        `Flyer Image: ${cleanImageUrl}`
+      ].filter(Boolean).join('\n---\n');
 
-      const rawText = textParts.join('\n---\n');
-
-      // Stable hash
-      const hashSource = `${dealerId}_${disclaimerId}_${title}_${imgSrc}`;
+      const hashSource = `${dealerId}_${disclaimerId}_${title}_${cleanImageUrl}`;
       const imageHash = crypto.createHash('sha256').update(hashSource).digest('hex');
 
       visualSpecials.push({
-        id: `stg_${dealerId}_${disclaimerId}`,
+        id: `stg_${dealerId}_stream_${disclaimerId}`,
         dealerId,
         offerDealerName: dealerName,
         clientDealerName: dealerName,
         snapshotDate: today,
-        specialType: 'vehicle_text',
+        specialType: 'vehicle_flyer', // Staged exclusively for n8n Vision AI
         title: title.slice(0, 190),
         details: JSON.stringify({
-          imageUrl: imgSrc,
+          imageUrl: cleanImageUrl,
           destinationUrl: destUrl,
           pageUrl: targetUrl,
           disclaimerId,
           vin,
-          stockNumber: stock,
-          offerSummary,
-          platform: 'retailready_banner'
+          apr,
+          platform: 'retailready_stream_banner'
         }),
         status: 'pending',
         rawText,
         imageHash,
-        imageUrl: imgSrc,
+        imageUrl: cleanImageUrl,
         domain,
         pageUrl: targetUrl
       });
     });
 
     // ==========================================
-    // SECTION 2: DealerOn Special Coupon Cards (.card__coupon)
+    // SECTION 2: Homepage DealerOn Hero Carousel Banners (#carousel-Main)
     // ==========================================
-    const couponCards = $('.card__coupon, [id^="special--"]');
-    logger.log(`Processing ${couponCards.length} coupon card(s)...`);
+    const heroSlides = $('#carousel-Main .carousel-inner > .item, .carousel-inner > .item.banner-slide');
+    logger.log(`Processing ${heroSlides.length} DealerOn hero carousel item(s)...`);
 
-    couponCards.each((i, el) => {
-      const card = $(el);
-      const promoId =
-        card.attr('data-dotagging-promotion-id') ||
-        card.attr('id')?.replace(/^special--/, '') ||
-        `pff_${Date.now()}_${i}`;
+    heroSlides.each((i, el) => {
+      const item = $(el);
+      // Skip mobile duplicates (.hideOnDesktop) to select high-res desktop banners
+      if (item.hasClass('hideOnDesktop')) return;
 
-      if (seenIds.has(promoId)) return;
-      seenIds.add(promoId);
-
-      // A. Extract Title
-      const h2Title = card.find('.card__title--main').text().trim();
-      const dotaggingTitle = (card.attr('data-dotagging-promotion-name') || '').trim();
-      const title = h2Title || dotaggingTitle || `${dealerName} Special #${i + 1}`;
-
-      // B. Filter Out Non-Vehicle Marketing Promos
-      const isMarketingPromo = /why buy|about us|value your trade|schedule service|career|advantage|community|contact us|meet our team|military|college grad|service special|parts special|collision/i.test(title);
-      if (isMarketingPromo) {
-        logger.log(`Skipping non-vehicle promo card: "${title}"`);
-        return;
-      }
-
-      // C. Extract Vehicle Details
-      const stockNumber = card.find('.card__title--sub').text().trim();
-      const expirationText = card.find('.card__expiration').text().trim();
-
-      // D. Extract Pricing Breakdown
-      const msrp = card.find('.dealerDiscount .vehiclePricingHighlightAmount').first().text().trim();
-      const salePrice = card.find('.featuredPrice .vehiclePricingHighlightAmount').first().text().trim();
-
-      const priceLines: string[] = [];
-      card.find('.priceBlockCollapse:first .priceBlockItem').each((_, pItem) => {
-        const label = $(pItem).find('.priceBlocItemPriceLabel, .priceBlockItemRebateLabel').text().replace(/\s+/g, ' ').trim();
-        const val = $(pItem).find('.priceBlocItemPriceValue, .priceBlockItemRebateValue').text().replace(/\s+/g, ' ').trim();
-        if (label && val) {
-          priceLines.push(`${label} ${val}`);
-        }
-      });
-
-      // Extract Rebate Details from modal popover content if available
-      let rebateBreakdown = '';
-      const rebateBtn = card.find('.priceBlockItemRebateButton');
-      const rawContent = rebateBtn.attr('data-content');
-      if (rawContent) {
-        try {
-          const rebate$ = cheerio.load(rawContent);
-          const rebates: string[] = [];
-          rebate$('li').each((_, rLi) => {
-            const itemText = rebate$(rLi).text().replace(/\s+/g, ' ').trim();
-            if (itemText) rebates.push(itemText);
-          });
-          if (rebates.length > 0) {
-            rebateBreakdown = `Rebates Breakdown: ${rebates.join(' | ')}`;
-          }
-        } catch {}
-      }
-
-      // E. Extract Vehicle Inventory Image
-      const img = card.find('.card__hero img, img').first();
-      let imgSrc = img.attr('src') || img.attr('data-src') || '';
-      if (imgSrc && !imgSrc.startsWith('http')) {
-        try {
-          imgSrc = new URL(imgSrc, targetUrl).href;
-        } catch {}
-      }
-
-      // F. Extract Inventory Link & VIN
-      let destUrl = card.find('a.view-inventory, a.hero-view-inventory').attr('href') || targetUrl;
+      const a = item.find('a').first();
+      let destUrl = a.attr('href') || targetUrl;
       if (destUrl && !destUrl.startsWith('http')) {
-        try {
-          destUrl = new URL(destUrl, targetUrl).href;
-        } catch {}
+        try { destUrl = new URL(destUrl, targetUrl).href; } catch {}
       }
 
-      const vinMatch = `${destUrl} ${imgSrc}`.match(/\b([A-HJ-NPR-Z0-9]{17})\b/i);
-      const vin = vinMatch ? vinMatch[1].toUpperCase() : '';
-
-      // Combine structured text parts for LLM extraction
-      const textParts = [
-        title,
-        vin ? `VIN: ${vin}` : '',
-        stockNumber,
-        expirationText,
-        msrp ? `MSRP: ${msrp}` : '',
-        salePrice ? `Today's Best Price / Sale Price: ${salePrice}` : '',
-        priceLines.length > 0 ? `Pricing Stack:\n${priceLines.join('\n')}` : '',
-        rebateBreakdown,
-        `Inventory URL: ${destUrl}`
-      ].filter(Boolean);
-
-      const rawText = textParts.join('\n---\n');
-
-      // Verify card has some vehicle or payment signal
-      const hasVehicleSignal =
-        /\b(ford|explorer|f-150|f-250|f-350|f-450|mustang|bronco|ranger|maverick|expedition|escape|edge|transit)\b/i.test(rawText) ||
-        /\b(best price|sale price|msrp|discount|savings|rebates?|\$)\b/i.test(rawText);
-
-      if (!hasVehicleSignal) {
-        logger.log(`Skipping card without vehicle/pricing signal: "${title}"`);
+      // Skip non-vehicle service/parts links (e.g. Sunbit, tire/service coupons)
+      if (/service-parts|sunbit|buy-now-pay-later|collision/i.test(destUrl)) {
         return;
       }
 
-      // Stable hash
-      const hashSource = `${dealerId}_${promoId}_${title}_${imgSrc}`;
+      const img = item.find('img').first();
+      let imgSrc = img.attr('src') || img.attr('data-src') || '';
+      if (!imgSrc) {
+        const source = item.find('picture source[media*="min-width"]').first();
+        imgSrc = source.attr('srcset') || '';
+      }
+      if (imgSrc && !imgSrc.startsWith('http')) {
+        try { imgSrc = new URL(imgSrc, targetUrl).href; } catch {}
+      }
+      if (!imgSrc) return;
+
+      const alt = (img.attr('alt') || img.attr('title') || '').trim();
+      const assetId = img.attr('data-assetid') || `slide_${i + 1}`;
+      const assetName = img.attr('data-assetname') || '';
+      const assetExpire = img.attr('data-asset-expire') || '';
+
+      // Skip service/sunbit asset names
+      if (/Auto_Web_|sunbit/i.test(assetName) || /sunbit/i.test(alt)) {
+        return;
+      }
+
+      // Extract popover disclaimer if present on button
+      const disclaimerBtn = item.find('button.banner-disclaimer-btn, button[data-content]');
+      const rawDisclaimerHtml = disclaimerBtn.attr('data-content') || '';
+      let disclaimerText = '';
+      if (rawDisclaimerHtml) {
+        const $disc = (cheerio.load || (cheerio as any).default?.load)(rawDisclaimerHtml);
+        disclaimerText = $disc('.banner-disclaimer-content__text, p').text().replace(/\s+/g, ' ').trim();
+      }
+
+      let title = alt;
+      if (!title || title.length < 3) {
+        title = assetName
+          .replace(/^Prince_Frederick_Ford_/i, '')
+          .replace(/_Desktop_1920x600_.*$/i, '')
+          .replace(/[-_.]/g, ' ')
+          .trim();
+      }
+      title = `${dealerName} - ${title || `Promotional Offer #${i + 1}`}`;
+
+      const promoKey = `hero_${assetId}_${assetName}`;
+      if (seenIds.has(promoKey)) return;
+      seenIds.add(promoKey);
+
+      const rawText = [
+        `Offer Title: ${title}`,
+        assetExpire ? `Expiration: ${assetExpire}` : '',
+        disclaimerText ? `Disclaimer: ${disclaimerText}` : '',
+        `Flyer Image: ${imgSrc}`
+      ].filter(Boolean).join('\n---\n');
+
+      const hashSource = `${dealerId}_${promoKey}_${title}_${imgSrc}`;
       const imageHash = crypto.createHash('sha256').update(hashSource).digest('hex');
 
       visualSpecials.push({
-        id: `stg_${dealerId}_${promoId}`,
+        id: `stg_${dealerId}_hero_${assetId}`,
         dealerId,
         offerDealerName: dealerName,
         clientDealerName: dealerName,
         snapshotDate: today,
-        specialType: 'vehicle_text',
+        specialType: 'vehicle_flyer', // Staged exclusively for n8n Vision AI
         title: title.slice(0, 190),
         details: JSON.stringify({
           imageUrl: imgSrc,
           destinationUrl: destUrl,
           pageUrl: targetUrl,
-          promoId,
-          vin,
-          msrp,
-          salePrice,
-          stockNumber,
-          platform: 'dealeron'
+          assetId,
+          assetName,
+          assetExpire,
+          platform: 'dealeron_hero_carousel'
         }),
         status: 'pending',
         rawText,
@@ -298,7 +286,12 @@ export class PrinceFrederickFordScraper implements DealerSpecialsScraper {
       });
     });
 
-    logger.log(`Extracted a total of ${visualSpecials.length} staged text-based specials ready for AI from ${dealerName}.`);
+    // NOTE: Inventory coupon cards (.card__coupon) are strictly excluded.
+    // As per user specification, we do not extract inventory specials for any dealership.
+
+    logger.log(
+      `Extracted ${visualSpecials.length} visual marketing campaign flyers from ${dealerName} (Strictly 0 inventory specials).`
+    );
     return { htmlSpecials: [], visualSpecials };
   }
 }
