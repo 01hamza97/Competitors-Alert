@@ -154,10 +154,14 @@ export async function POST(request) {
         extracted.apr != null && extracted.apr !== ''
           ? parseFloat(String(extracted.apr).replace(/[^0-9.]/g, ''))
           : null;
+      const cleanSelling =
+        extracted.selling_price != null && extracted.selling_price !== ''
+          ? parseFloat(String(extracted.selling_price).replace(/[^0-9.]/g, ''))
+          : (extracted.sellingPrice ? parseFloat(String(extracted.sellingPrice).replace(/[^0-9.]/g, '')) : null);
       const cleanMsrp =
         extracted.msrp != null && extracted.msrp !== ''
           ? parseFloat(String(extracted.msrp).replace(/[^0-9.]/g, ''))
-          : null;
+          : cleanSelling;
       const cleanOfferDetails =
         extracted.offer_details && String(extracted.offer_details).trim().length > 0
           ? String(extracted.offer_details).trim()
@@ -322,7 +326,9 @@ export async function POST(request) {
         for (const record of allRecordsToPromote) {
           const cleanDealerId = (record.dealerId || 'store').replace(/^store_/, '');
           const safeModelSlug = cleanModel.replace(/[^a-zA-Z0-9]/g, '_');
-          const liveId = `spc_${cleanDealerId}_${cleanYear}_${cleanMake}_${safeModelSlug}_ai_${record.id.slice(-6)}`;
+          const optIndex = item.offer_index != null ? item.offer_index : (extracted.offer_index != null ? extracted.offer_index : null);
+          const optSuffix = optIndex != null ? `_opt${optIndex}` : `_${cleanType}`;
+          const liveId = `spc_${cleanDealerId}_${cleanYear}_${cleanMake}_${safeModelSlug}_ai_${record.id.slice(-6)}${optSuffix}`;
 
           await prisma.competitorVehicleSpecial.upsert({
             where: { id: liveId },
