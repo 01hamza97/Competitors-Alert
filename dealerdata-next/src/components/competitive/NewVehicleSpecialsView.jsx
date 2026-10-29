@@ -138,10 +138,12 @@ function OfferCard({ s }) {
 
   const isLease = type.includes('lease');
   const hasApr = (s.apr != null && s.apr >= 0) || type === 'apr';
-  const hasMonthlyPayment = (s.monthly_payment != null && s.monthly_payment > 0) || isLease;
+  // Avoid treating legal APR repayment disclosure formulas (e.g. "$16.67 per $1,000" or "$15.15 per $1,000") as vehicle monthly payments
+  const isBogusDisclosurePayment = s.monthly_payment != null && s.monthly_payment < 80 && hasApr;
+  const hasMonthlyPayment = !isBogusDisclosurePayment && ((s.monthly_payment != null && s.monthly_payment > 0) || (isLease && s.monthly_payment != null));
 
-  const badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease ? 'lease' : rawType);
-  const badgeLabel = hasApr && !hasMonthlyPayment ? 'APR' : isLease ? 'LEASE' : rawType.toUpperCase();
+  const badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease && hasMonthlyPayment ? 'lease' : hasApr ? 'apr' : rawType);
+  const badgeLabel = hasApr && !hasMonthlyPayment ? 'APR' : isLease && hasMonthlyPayment ? 'LEASE' : hasApr ? 'APR' : rawType.toUpperCase();
 
   let cleanUrl = s.special_url;
   if (cleanUrl) {

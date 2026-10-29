@@ -136,9 +136,9 @@ export async function POST(request) {
       const cleanMake = (extracted.make || 'Unknown').trim();
       const cleanModel = (extracted.model || 'Special Offer').trim();
       const cleanTrim = extracted.trim ? String(extracted.trim).trim() : null;
-      const cleanType = (extracted.special_type || extracted.specialType || 'lease').toLowerCase().trim();
+      let cleanType = (extracted.special_type || extracted.specialType || 'lease').toLowerCase().trim();
       
-      const cleanMonthly =
+      let cleanMonthly =
         extracted.monthly_payment != null && extracted.monthly_payment !== ''
           ? parseFloat(String(extracted.monthly_payment).replace(/[^0-9.]/g, ''))
           : null;
@@ -171,6 +171,25 @@ export async function POST(request) {
       const cleanExp = extracted.expiration_date || detailsObj.expirationDate || null;
       const finalImageUrl = detailsObj.imageUrl || extracted.image_url || null;
       const finalSpecialUrl = detailsObj.specialUrl || extracted.special_url || null;
+
+      // Sanitize legal disclosure factors (e.g., "$16.67 per month per $1,000 financed" or "$15.15 per $1,000 borrowed")
+      // which LLMs mistakenly extract as vehicle monthly payments
+      if (cleanMonthly != null && cleanMonthly < 80) {
+        const combinedText = `${cleanTitle} ${cleanDisclaimer} ${rawText}`.toLowerCase();
+        if (
+          cleanApr != null ||
+          combinedText.includes('per $1,000') ||
+          combinedText.includes('per $1000') ||
+          combinedText.includes('per thousand') ||
+          combinedText.includes('per 1,000') ||
+          combinedText.includes('per 1000')
+        ) {
+          cleanMonthly = null;
+          if (cleanApr != null && (cleanType === 'finance' || cleanType === 'lease')) {
+            cleanType = 'apr';
+          }
+        }
+      }
 
       // Card Qualification Check: Must have at least one actionable numeric term
       // (monthly payment, apr rate, down payment, term months, msrp, or specific dollar/percent offer detail)

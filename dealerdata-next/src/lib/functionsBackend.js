@@ -810,11 +810,18 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
           return !m.includes('details and disclaimers') && !m.includes('open details modal');
         })
         .map(r => {
+          let cleanMonthly = r.monthlyPayment;
+          const cleanApr = r.apr;
+          const discText = `${r.title || ''} ${r.disclaimer || ''}`.toLowerCase();
+          if (cleanMonthly != null && cleanMonthly < 80 && (cleanApr != null || discText.includes('per $1,000') || discText.includes('per $1000') || discText.includes('per thousand'))) {
+            cleanMonthly = null;
+          }
+
           let offerDetails = '';
-          if (r.monthlyPayment != null && r.monthlyPayment > 0) {
-            offerDetails = `${Math.round(r.monthlyPayment)}`;
-          } else if (r.apr != null && r.apr >= 0) {
-            offerDetails = `${r.apr}`;
+          if (cleanMonthly != null && cleanMonthly > 0) {
+            offerDetails = `${Math.round(cleanMonthly)}`;
+          } else if (cleanApr != null && cleanApr >= 0) {
+            offerDetails = `${cleanApr}`;
           } else if (r.msrp != null && r.msrp > 0) {
             offerDetails = `${Math.round(r.msrp)}`;
           }
@@ -884,12 +891,12 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             }
           }
 
-          let specialType = r.specialType || 'lease';
-          if (r.monthlyPayment != null && r.monthlyPayment > 0) {
+          let specialType = r.specialType || (cleanApr != null ? 'apr' : 'lease');
+          if (cleanMonthly != null && cleanMonthly > 0) {
             if (/\b(?:lease|leasing)\b/i.test(fullText) || !specialType) {
               specialType = 'lease';
             }
-          } else if (r.apr != null && r.apr >= 0) {
+          } else if (cleanApr != null && cleanApr >= 0) {
             specialType = 'apr';
           }
 
@@ -904,11 +911,11 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             trim: trim || null,
             special_type: specialType,
             offer_type: specialType,
-            monthly_payment: r.monthlyPayment,
+            monthly_payment: cleanMonthly,
             term_months: r.termMonths,
             term: r.termMonths,
             down_payment: r.downPayment,
-            apr: r.apr,
+            apr: cleanApr,
             msrp: r.msrp,
             offer_details: offerDetails,
             title: r.title,
@@ -957,6 +964,15 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
 
         // 1. If AI has already read this image and saved the output in the DB, use verified AI data
         if (aiParsed && (aiParsed.model || aiParsed.title)) {
+          let stagedMonthly = aiParsed.monthly_payment != null ? aiParsed.monthly_payment : null;
+          const stagedApr = aiParsed.apr != null ? aiParsed.apr : null;
+          const stagedDisc = `${aiParsed.title || ''} ${aiParsed.disclaimer || ''} ${s.rawText || ''}`.toLowerCase();
+          if (stagedMonthly != null && stagedMonthly < 80 && (stagedApr != null || stagedDisc.includes('per $1,000') || stagedDisc.includes('per $1000') || stagedDisc.includes('per thousand'))) {
+            stagedMonthly = null;
+          }
+
+          const offerType = stagedApr != null && stagedMonthly == null ? 'APR' : (aiParsed.offer_type || aiParsed.special_type || 'Visual Flyer');
+
           return {
             id: s.id,
             dealer_id: s.dealerId,
@@ -967,14 +983,14 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             model: aiParsed.model || 'Visual Special',
             trim: aiParsed.trim || null,
             special_type: 'visual',
-            offer_type: aiParsed.offer_type || aiParsed.special_type || 'Visual Flyer',
-            monthly_payment: aiParsed.monthly_payment != null ? aiParsed.monthly_payment : null,
+            offer_type: offerType,
+            monthly_payment: stagedMonthly,
             term_months: aiParsed.term_months || null,
             term: aiParsed.term_months || null,
             down_payment: aiParsed.down_payment != null ? aiParsed.down_payment : null,
-            apr: aiParsed.apr != null ? aiParsed.apr : null,
+            apr: stagedApr,
             msrp: aiParsed.msrp != null ? aiParsed.msrp : null,
-            offer_details: aiParsed.offer_details || (aiParsed.monthly_payment ? `${Math.round(aiParsed.monthly_payment)}` : ''),
+            offer_details: aiParsed.offer_details || (stagedMonthly ? `${Math.round(stagedMonthly)}` : stagedApr != null ? `${stagedApr}` : ''),
             title: aiParsed.title || `New ${aiParsed.year || ''} ${aiParsed.make || ''} ${aiParsed.model || ''}`.trim(),
             disclaimer: aiParsed.disclaimer || s.rawText || (detailsObj.disclaimer ? detailsObj.disclaimer : undefined),
             expiration_date: aiParsed.expiration_date || undefined,
