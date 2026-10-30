@@ -388,6 +388,10 @@ export default function ModelInventoryView({ store }) {
   const dealerColSpan = priceMode === 'all' ? 2 : 1;
   const totalWidth = (showYear ? yearColPx : 0) + (showMake ? makeColPx : 0) + modelColPx + dataColPx * dealerColSpan * competitorIds.length;
 
+  const yearLeft = 0;
+  const makeLeft = showYear ? yearColPx : 0;
+  const modelLeft = (showYear ? yearColPx : 0) + (showMake ? makeColPx : 0);
+
   if (!storeName || !dealershipKey) {
     return <div className="text-gray-400 text-sm py-10 text-center">Select a store to view inventory data.</div>;
   }
@@ -453,8 +457,8 @@ export default function ModelInventoryView({ store }) {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-auto">
-        <table className="text-sm" style={{ tableLayout: 'fixed', width: `${totalWidth}px` }}>
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-auto max-h-[calc(100vh-210px)] min-h-[450px]">
+        <table className="text-sm" style={{ tableLayout: 'fixed', width: `${totalWidth}px`, borderCollapse: 'separate', borderSpacing: 0 }}>
           <colgroup>
             {showYear && <col style={{ width: `${yearColPx}px` }} />}
             {showMake && <col style={{ width: `${makeColPx}px` }} />}
@@ -467,64 +471,117 @@ export default function ModelInventoryView({ store }) {
           <thead>
             {priceMode === 'all' && (
               <tr className="border-b border-gray-100 bg-gray-50">
-                {showYear && <th />}
-                {showMake && <th />}
-                <th />
+                {showYear && (
+                  <th
+                    rowSpan={2}
+                    style={{ position: 'sticky', top: 0, left: `${yearLeft}px`, zIndex: 30, width: `${yearColPx}px` }}
+                    className="py-3 px-2 text-center text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors bg-gray-50 border-b border-gray-200"
+                    onClick={() => handleSort('year')}
+                  >
+                    <span className="inline-flex items-center justify-center gap-0.5">
+                      Yr
+                      {sortBy === 'year'
+                        ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                        : <ChevronsUpDown size={11} className="opacity-40" />}
+                    </span>
+                  </th>
+                )}
+                {showMake && (
+                  <th
+                    rowSpan={2}
+                    style={{ position: 'sticky', top: 0, left: `${makeLeft}px`, zIndex: 30, width: `${makeColPx}px` }}
+                    className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors bg-gray-50 border-b border-gray-200"
+                    onClick={() => handleSort('make')}
+                  >
+                    <span className="inline-flex items-center gap-0.5">
+                      Make
+                      {sortBy === 'make'
+                        ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                        : <ChevronsUpDown size={11} className="opacity-40" />}
+                    </span>
+                  </th>
+                )}
+                <th
+                  rowSpan={2}
+                  style={{ position: 'sticky', top: 0, left: `${modelLeft}px`, zIndex: 30, width: `${modelColPx}px` }}
+                  className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors bg-gray-50 border-b border-gray-200 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"
+                  onClick={() => handleSort('model')}
+                >
+                  <span className="inline-flex items-center gap-0.5">
+                    {isGroupedHierarchy ? 'Model / Trim' : 'Model'}
+                    {sortBy === 'model'
+                      ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                      : <ChevronsUpDown size={11} className="opacity-40" />}
+                  </span>
+                </th>
                 {competitorIds.map(cid => (
-                  <th key={cid} colSpan={2} className={`py-2 px-2 text-center text-xs font-bold border-l border-gray-200 leading-tight ${cid === clientStoreKey ? 'bg-blue-50 text-blue-700' : 'text-gray-600'}`}>
+                  <th
+                    key={cid}
+                    colSpan={2}
+                    style={{ position: 'sticky', top: 0, zIndex: 20 }}
+                    className={`py-2 px-2 text-center text-xs font-bold border-l border-b border-gray-200 leading-tight ${cid === clientStoreKey ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-700'}`}
+                  >
                     {competitorIdToName[cid] || cid}
                   </th>
                 ))}
               </tr>
             )}
             <tr className="border-b border-gray-200 bg-gray-50">
-              {showYear && (
-                <th
-                  className="py-3 px-2 text-center text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors"
-                  style={{ color: sortBy === 'year' ? '#2563eb' : '#9ca3af' }}
-                  onClick={() => handleSort('year')}
-                >
-                  <span className="inline-flex items-center justify-center gap-0.5">
-                    Yr
-                    {sortBy === 'year'
-                      ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
-                      : <ChevronsUpDown size={11} className="opacity-40" />}
-                  </span>
-                </th>
+              {priceMode !== 'all' && (
+                <>
+                  {showYear && (
+                    <th
+                      style={{ position: 'sticky', top: 0, left: `${yearLeft}px`, zIndex: 30, width: `${yearColPx}px` }}
+                      className="py-3 px-2 text-center text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors bg-gray-50 border-b border-gray-200"
+                      onClick={() => handleSort('year')}
+                    >
+                      <span className="inline-flex items-center justify-center gap-0.5">
+                        Yr
+                        {sortBy === 'year'
+                          ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                          : <ChevronsUpDown size={11} className="opacity-40" />}
+                      </span>
+                    </th>
+                  )}
+                  {showMake && (
+                    <th
+                      style={{ position: 'sticky', top: 0, left: `${makeLeft}px`, zIndex: 30, width: `${makeColPx}px` }}
+                      className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors bg-gray-50 border-b border-gray-200"
+                      onClick={() => handleSort('make')}
+                    >
+                      <span className="inline-flex items-center gap-0.5">
+                        Make
+                        {sortBy === 'make'
+                          ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                          : <ChevronsUpDown size={11} className="opacity-40" />}
+                      </span>
+                    </th>
+                  )}
+                  <th
+                    style={{ position: 'sticky', top: 0, left: `${modelLeft}px`, zIndex: 30, width: `${modelColPx}px` }}
+                    className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors bg-gray-50 border-b border-gray-200 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"
+                    onClick={() => handleSort('model')}
+                  >
+                    <span className="inline-flex items-center gap-0.5">
+                      {isGroupedHierarchy ? 'Model / Trim' : 'Model'}
+                      {sortBy === 'model'
+                        ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
+                        : <ChevronsUpDown size={11} className="opacity-40" />}
+                    </span>
+                  </th>
+                </>
               )}
-              {showMake && (
-                <th
-                  className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors"
-                  style={{ color: sortBy === 'make' ? '#2563eb' : '#9ca3af' }}
-                  onClick={() => handleSort('make')}
-                >
-                  <span className="inline-flex items-center gap-0.5">
-                    Make
-                    {sortBy === 'make'
-                      ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
-                      : <ChevronsUpDown size={11} className="opacity-40" />}
-                  </span>
-                </th>
-              )}
-              <th
-                className="py-3 px-3 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-blue-600 transition-colors"
-                style={{ color: sortBy === 'model' ? '#2563eb' : '#9ca3af' }}
-                onClick={() => handleSort('model')}
-              >
-                <span className="inline-flex items-center gap-0.5">
-                  {isGroupedHierarchy ? 'Model / Trim' : 'Model'}
-                  {sortBy === 'model'
-                    ? (sortDir === 'asc' ? <ChevronUp size={11} /> : <ChevronDown size={11} />)
-                    : <ChevronsUpDown size={11} className="opacity-40" />}
-                </span>
-              </th>
               {competitorIds.map(cid => priceMode === 'all' ? (
                 <React.Fragment key={cid}>
-                  <th className={`py-2 px-1 text-center text-xs font-semibold border-l border-gray-200 ${cid === clientStoreKey ? 'bg-blue-50 text-blue-600' : 'text-blue-500'}`}>Inv</th>
-                  <th className={`py-2 px-1 text-center text-xs font-semibold ${cid === clientStoreKey ? 'bg-blue-50 text-emerald-700' : 'text-emerald-600'}`}>Low $</th>
+                  <th style={{ position: 'sticky', top: '34px', zIndex: 20 }} className={`py-1.5 px-1 text-center text-xs font-semibold border-l border-b border-gray-200 ${cid === clientStoreKey ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-blue-500'}`}>Inv</th>
+                  <th style={{ position: 'sticky', top: '34px', zIndex: 20 }} className={`py-1.5 px-1 text-center text-xs font-semibold border-b border-gray-200 ${cid === clientStoreKey ? 'bg-blue-50 text-emerald-700' : 'bg-gray-50 text-emerald-600'}`}>Low $</th>
                 </React.Fragment>
               ) : (
-                <th key={cid} className={`py-3 px-2 text-center text-xs font-semibold uppercase tracking-wider leading-tight break-words ${cid === clientStoreKey ? 'bg-blue-50 text-blue-700' : 'text-gray-400'}`}>
+                <th
+                  key={cid}
+                  style={{ position: 'sticky', top: 0, zIndex: 20 }}
+                  className={`py-3 px-2 text-center text-xs font-semibold uppercase tracking-wider leading-tight break-words bg-gray-50 border-b border-gray-200 ${cid === clientStoreKey ? 'bg-blue-50 text-blue-700' : 'text-gray-500'}`}
+                >
                   {competitorIdToName[cid] || cid}
                 </th>
               ))}
@@ -533,16 +590,25 @@ export default function ModelInventoryView({ store }) {
           <tbody>
             {/* Totals row */}
             <tr className="border-b-2 border-gray-300 bg-blue-50 font-bold">
-              {showYear && <td />}
-              {showMake && <td />}
-              <td className="py-2 px-3 text-xs font-bold text-gray-700">Total</td>
+              {showYear && (
+                <td style={{ position: 'sticky', left: `${yearLeft}px`, zIndex: 10 }} className="bg-blue-50 border-b-2 border-gray-300" />
+              )}
+              {showMake && (
+                <td style={{ position: 'sticky', left: `${makeLeft}px`, zIndex: 10 }} className="bg-blue-50 border-b-2 border-gray-300" />
+              )}
+              <td
+                style={{ position: 'sticky', left: `${modelLeft}px`, zIndex: 10 }}
+                className="py-2 px-3 text-xs font-bold text-gray-700 bg-blue-50 border-b-2 border-gray-300 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"
+              >
+                Total
+              </td>
               {competitorIds.map(cid => priceMode === 'all' ? (
                 <React.Fragment key={cid}>
-                  <td className={`py-2 px-1 text-center text-xs font-bold text-blue-700 tabular-nums border-l border-gray-200 ${cid === clientStoreKey ? 'bg-blue-100' : ''}`}>{grandTotals[cid] || ''}</td>
-                  <td className={cid === clientStoreKey ? 'bg-blue-100' : ''} />
+                  <td className={`py-2 px-1 text-center text-xs font-bold text-blue-700 tabular-nums border-l border-b-2 border-gray-300 ${cid === clientStoreKey ? 'bg-blue-100' : 'bg-blue-50'}`}>{grandTotals[cid] || ''}</td>
+                  <td className={`border-b-2 border-gray-300 ${cid === clientStoreKey ? 'bg-blue-100' : 'bg-blue-50'}`} />
                 </React.Fragment>
               ) : (
-                <td key={cid} className={`py-2 px-2 text-center text-xs font-bold text-blue-700 tabular-nums ${cid === clientStoreKey ? 'bg-blue-100' : ''}`}>
+                <td key={cid} className={`py-2 px-2 text-center text-xs font-bold text-blue-700 tabular-nums border-b-2 border-gray-300 ${cid === clientStoreKey ? 'bg-blue-100' : 'bg-blue-50'}`}>
                   {priceMode === 'inventory' ? (grandTotals[cid] || '') : ''}
                 </td>
               ))}
@@ -553,28 +619,41 @@ export default function ModelInventoryView({ store }) {
               const range = rowRange(row, competitorIds, priceMode);
               const rowMin = range ? range.min : 0;
               const rowMax = range ? range.max : 0;
+              const rowBg = isHeader ? 'bg-gray-100' : (i % 2 === 1 ? 'bg-slate-50' : 'bg-white');
 
               return (
                 <tr
                   key={i}
-                  className={`border-b border-gray-100 ${isHeader ? 'bg-gray-50/60' : ''}`}
+                  className={`border-b border-gray-100 ${isHeader ? 'bg-gray-50/80 font-semibold' : ''}`}
                 >
                   {showYear && (
-                    <td className="py-2 px-2 text-center text-xs text-gray-500 tabular-nums font-medium">
+                    <td
+                      style={{ position: 'sticky', left: `${yearLeft}px`, zIndex: 10 }}
+                      className={`py-2 px-2 text-center text-xs text-gray-500 tabular-nums font-medium ${rowBg} border-b border-gray-100`}
+                    >
                       {isGroupedHierarchy ? (isHeader ? (row._year ?? '') : '') : (row._year ?? '')}
                     </td>
                   )}
                   {showMake && (
-                    <td className="py-2 px-3 text-xs text-gray-500">
+                    <td
+                      style={{ position: 'sticky', left: `${makeLeft}px`, zIndex: 10 }}
+                      className={`py-2 px-3 text-xs text-gray-500 ${rowBg} border-b border-gray-100`}
+                    >
                       {isGroupedHierarchy ? (isHeader ? (row._make || '—') : '') : (row._make || '—')}
                     </td>
                   )}
                   {isGroupedHierarchy ? (
-                    <td className={`py-2 text-xs ${isHeader ? 'px-3 font-bold text-gray-800' : 'pl-6 pr-3 font-normal text-gray-500 italic'}`}>
+                    <td
+                      style={{ position: 'sticky', left: `${modelLeft}px`, zIndex: 10 }}
+                      className={`py-2 text-xs ${isHeader ? 'px-3 font-bold text-gray-800' : 'pl-6 pr-3 font-normal text-gray-500 italic'} ${rowBg} border-b border-gray-100 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]`}
+                    >
                       {isHeader ? (row._model || '—') : (row._trim || '—')}
                     </td>
                   ) : (
-                    <td className="py-2 px-3 text-xs font-medium text-gray-800">
+                    <td
+                      style={{ position: 'sticky', left: `${modelLeft}px`, zIndex: 10 }}
+                      className={`py-2 px-3 text-xs font-medium text-gray-800 ${rowBg} border-b border-gray-100 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]`}
+                    >
                       {row._model || '—'}
                     </td>
                   )}
@@ -585,10 +664,10 @@ export default function ModelInventoryView({ store }) {
                       const countStyle = all?.count != null ? blueShade(all.count, rowMin, rowMax) : {};
                       return (
                         <React.Fragment key={cid}>
-                          <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : 'font-semibold'} border-l border-gray-100 ${isClient ? 'bg-blue-50/60' : ''}`} style={countStyle || {}}>
+                          <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : 'font-semibold'} border-l border-b border-gray-100 ${isClient ? 'bg-blue-50/60' : ''}`} style={countStyle || {}}>
                             {all?.count ?? ''}
                           </td>
-                          <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : ''} text-emerald-700 ${isClient ? 'bg-blue-50/60' : ''}`}>
+                          <td className={`py-2 px-1 tabular-nums text-center text-xs ${isHeader ? 'font-bold' : ''} text-emerald-700 border-b border-gray-100 ${isClient ? 'bg-blue-50/60' : ''}`}>
                             {all?.low != null && all.low > 0 ? <><sup className="text-[9px]">$</sup>{all.low.toLocaleString()}</> : ''}
                           </td>
                         </React.Fragment>
@@ -603,7 +682,7 @@ export default function ModelInventoryView({ store }) {
                     return (
                       <td
                         key={cid}
-                        className={`py-2 px-2 tabular-nums text-center text-xs font-semibold ${isHeader ? '' : 'font-normal'}`}
+                        className={`py-2 px-2 tabular-nums text-center text-xs font-semibold border-b border-gray-100 ${isHeader ? '' : 'font-normal'}`}
                         style={style || {}}
                       >
                         {priceMode === 'inventory'

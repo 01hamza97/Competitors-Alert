@@ -564,15 +564,19 @@ export default function NewVehicleSpecialsView({ store }) {
   }
 
   const yearColW = 60;
-  const trimColW = 100;
-  const modelColW = 140;
+  const trimColW = 110;
+  const modelColW = 150;
   const dealerColW = 240;
   const totalW = (showYear ? yearColW : 0) + modelColW + (showTrim ? trimColW : 0) + dealerColW * dealers.length;
 
+  const yearLeft = 0;
+  const modelLeft = showYear ? yearColW : 0;
+  const trimLeft = (showYear ? yearColW : 0) + modelColW;
+
   // Shared pivot table body (used by both Pivot and Visual views)
-  const PivotTable = ({ imageOnly }) => (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-auto">
-      <table style={{ tableLayout: 'fixed', width: `${totalW}px`, borderCollapse: 'collapse' }}>
+  const renderPivotTable = (imageOnly) => (
+    <div className="bg-white rounded-2xl border border-gray-100 overflow-auto max-h-[calc(100vh-210px)] min-h-[450px]">
+      <table style={{ tableLayout: 'fixed', width: `${totalW}px`, borderCollapse: 'separate', borderSpacing: 0 }}>
         <colgroup>
           {showYear && <col style={{ width: `${yearColW}px` }} />}
           <col style={{ width: `${modelColW}px` }} />
@@ -580,16 +584,49 @@ export default function NewVehicleSpecialsView({ store }) {
           {dealers.map(d => <col key={d} style={{ width: `${dealerColW}px` }} />)}
         </colgroup>
         <thead>
-          <tr className="border-b border-gray-200 bg-white" style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+          <tr className="border-b border-gray-200 bg-gray-50">
             {showYear && (
-              <th className="py-3 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400 bg-white border-b border-gray-200">Year</th>
+              <th
+                style={{ position: 'sticky', top: 0, left: `${yearLeft}px`, zIndex: 30, width: `${yearColW}px` }}
+                className="py-3 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 bg-gray-50 border-b border-gray-200"
+              >
+                Year
+              </th>
             )}
-            <th className="py-3 px-4 text-left text-xs font-bold uppercase tracking-wider text-gray-400 bg-white border-b border-gray-200">Model</th>
+            <th
+              style={{
+                position: 'sticky',
+                top: 0,
+                left: `${modelLeft}px`,
+                zIndex: 30,
+                width: `${modelColW}px`,
+              }}
+              className={`py-3 px-4 text-left text-xs font-bold uppercase tracking-wider text-gray-500 bg-gray-50 border-b border-gray-200 ${!showTrim ? 'border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]' : ''}`}
+            >
+              Model
+            </th>
             {showTrim && (
-              <th className="py-3 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-400 bg-white border-b border-gray-200">Trim</th>
+              <th
+                style={{
+                  position: 'sticky',
+                  top: 0,
+                  left: `${trimLeft}px`,
+                  zIndex: 30,
+                  width: `${trimColW}px`,
+                }}
+                className="py-3 px-3 text-left text-xs font-bold uppercase tracking-wider text-gray-500 bg-gray-50 border-b border-gray-200 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]"
+              >
+                Trim
+              </th>
             )}
             {dealers.map(d => (
-              <th key={d} className="py-3 px-4 text-left text-xs font-bold text-gray-800 bg-white border-b border-gray-200 leading-snug">{d}</th>
+              <th
+                key={d}
+                style={{ position: 'sticky', top: 0, zIndex: 20 }}
+                className="py-3 px-4 text-left text-xs font-bold text-gray-800 bg-gray-50 border-b border-gray-200 leading-snug"
+              >
+                {d}
+              </th>
             ))}
           </tr>
         </thead>
@@ -608,18 +645,33 @@ export default function NewVehicleSpecialsView({ store }) {
             );
             if (!hasData) return null;
 
+            const rowBg = ri % 2 === 1 ? 'bg-slate-50' : 'bg-white';
+
             return (
-              <tr key={ri} className={`align-top border-b border-gray-100 ${ri % 2 === 1 ? 'bg-gray-50/30' : ''}`}>
+              <tr key={ri} className={`align-top border-b border-gray-100 ${rowBg}`}>
                 {showYear && (
-                  <td className="py-4 px-3 align-top text-xs text-gray-500 font-medium">{row.year ?? '—'}</td>
+                  <td
+                    style={{ position: 'sticky', left: `${yearLeft}px`, zIndex: 10 }}
+                    className={`py-4 px-3 align-top text-xs text-gray-500 font-medium ${rowBg} border-b border-gray-100`}
+                  >
+                    {row.year ?? '—'}
+                  </td>
                 )}
-                <td className="py-4 px-4 align-top">
+                <td
+                  style={{ position: 'sticky', left: `${modelLeft}px`, zIndex: 10 }}
+                  className={`py-4 px-4 align-top ${rowBg} border-b border-gray-100 ${!showTrim ? 'border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]' : ''}`}
+                >
                   <span className={`text-sm font-bold ${!row.model ? 'text-gray-400 italic' : 'text-gray-800'}`}>
                     {row.model || 'Other'}
                   </span>
                 </td>
                 {showTrim && (
-                  <td className="py-4 px-3 align-top text-xs text-gray-500 italic">{row.trim ?? '—'}</td>
+                  <td
+                    style={{ position: 'sticky', left: `${trimLeft}px`, zIndex: 10 }}
+                    className={`py-4 px-3 align-top text-xs text-gray-500 italic ${rowBg} border-b border-gray-100 border-r border-gray-200 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.06)]`}
+                  >
+                    {row.trim ?? '—'}
+                  </td>
                 )}
                 {dealers.map(d => {
                   const items = filtered.filter(r => {
@@ -627,7 +679,7 @@ export default function NewVehicleSpecialsView({ store }) {
                     return resolvedName === d && matchFn(r) && (!imageOnly || r.image_url);
                   });
                   return (
-                    <td key={d} className="py-3 px-3 align-top">
+                    <td key={d} className="py-3 px-3 align-top border-b border-gray-100">
                       {items.length === 0 ? (
                         <span className="text-gray-200 text-xs">—</span>
                       ) : imageOnly ? (
@@ -716,8 +768,8 @@ export default function NewVehicleSpecialsView({ store }) {
         </label>
       </div>
 
-      {view === 'pivot' && <PivotTable imageOnly={false} />}
-      {view === 'visual' && <PivotTable imageOnly={true} />}
+      {view === 'pivot' && renderPivotTable(false)}
+      {view === 'visual' && renderPivotTable(true)}
 
       {/* Interactive Lightbox Modal */}
       {activeModalImage && (
