@@ -162,12 +162,12 @@ export async function POST(request) {
         extracted.msrp != null && extracted.msrp !== ''
           ? parseFloat(String(extracted.msrp).replace(/[^0-9.]/g, ''))
           : cleanSelling;
-      const cleanOfferDetails =
+      let cleanOfferDetails =
         extracted.offer_details && String(extracted.offer_details).trim().length > 0
           ? String(extracted.offer_details).trim()
           : null;
 
-      const cleanTitle = (
+      let cleanTitle = (
         extracted.title ||
         `${cleanYear} ${cleanMake} ${cleanModel} ${cleanType.toUpperCase()} Special`
       ).slice(0, 190);
@@ -175,6 +175,26 @@ export async function POST(request) {
       const cleanExp = extracted.expiration_date || detailsObj.expirationDate || null;
       const finalImageUrl = detailsObj.imageUrl || extracted.image_url || null;
       const finalSpecialUrl = detailsObj.specialUrl || extracted.special_url || null;
+
+      // Extract discount amount if not already populated in offer_details
+      if (!cleanOfferDetails && !cleanMonthly && cleanApr == null) {
+        const fullDisc = `${cleanTitle} ${cleanDisclaimer} ${rawText}`;
+        const match =
+          fullDisc.match(/(?:save|saving|savings|discount|off|cash back|bonus cash|rebate)\s*(?:up to\s*)?[:\$]?\s*\$?([0-9]{1,2},[0-9]{3}|[0-9]{3,5})/i) ||
+          fullDisc.match(/\$([0-9]{1,2},[0-9]{3}|[0-9]{3,5})\s*(?:off|savings|discount|cash back|bonus cash|rebate|total savings)/i);
+        if (match) {
+          const amt = parseInt(match[1].replace(/,/g, ''), 10);
+          if (amt >= 300 && amt <= 25000) {
+            cleanOfferDetails = `$${amt.toLocaleString()} OFF`;
+            if (cleanType === 'cash' || cleanType === 'lease') {
+              cleanType = 'discount';
+            }
+            if (!cleanTitle.includes(amt.toLocaleString())) {
+              cleanTitle = `${cleanTitle} - ${cleanOfferDetails}`.slice(0, 190);
+            }
+          }
+        }
+      }
 
       // Sanitize legal disclosure factors (e.g., "$16.67 per month per $1,000 financed" or "$15.15 per $1,000 borrowed")
       // which LLMs mistakenly extract as vehicle monthly payments

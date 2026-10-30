@@ -182,7 +182,30 @@ class PlaywrightCrawler {
                 try {
                     if (!alreadyLoadedInBrowser) {
                         try {
-                            await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+                            const gotoResp = await page.goto(normalizedUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
+                            const immediateTitle = await page.title().catch(() => '');
+                            const immediateHtml = await page.content().catch(() => '');
+                            const immediateBlocked = gotoResp?.status() === 402 ||
+                                gotoResp?.status() === 403 ||
+                                gotoResp?.status() === 429 ||
+                                immediateTitle.includes('Access Denied') ||
+                                immediateTitle.includes('Payment Required') ||
+                                immediateTitle.includes('Too Many Requests') ||
+                                immediateHtml.includes('errors.edgesuite.net') ||
+                                immediateHtml.includes('<h1>Access Denied</h1>') ||
+                                immediateHtml.includes('Reference #18.') ||
+                                immediateHtml.includes('AUTH004') ||
+                                immediateHtml.includes('usage limit') ||
+                                immediateHtml.includes('Usage exceeded');
+                            if (immediateBlocked) {
+                                console.warn(`[Playwright] Proxy error or block detected (status: ${gotoResp?.status()}, title: "${immediateTitle}").`);
+                                if (this.isUsingProxy && pageCount === 1) {
+                                    console.log(`[Playwright] Automatically falling back to DIRECT stealth connection...`);
+                                    await this.close();
+                                    return await this.crawl({ ...options, proxyUrl: 'direct' });
+                                }
+                                break;
+                            }
                         }
                         catch (gotoErr) {
                             if (gotoErr.message && gotoErr.message.includes('Download is starting')) {
@@ -199,22 +222,6 @@ class PlaywrightCrawler {
                         }
                     }
                     alreadyLoadedInBrowser = false;
-                    // Immediate check for Access Denied / Akamai / WAF block on proxy
-                    const immediateTitle = await page.title().catch(() => '');
-                    const immediateHtml = await page.content().catch(() => '');
-                    const immediateBlocked = immediateTitle.includes('Access Denied') ||
-                        immediateHtml.includes('errors.edgesuite.net') ||
-                        immediateHtml.includes('<h1>Access Denied</h1>') ||
-                        immediateHtml.includes('Reference #18.');
-                    if (immediateBlocked) {
-                        console.warn(`[Playwright] Access Denied / WAF block detected immediately on page ${pageCount} (${normalizedUrl}).`);
-                        if (this.isUsingProxy && pageCount === 1) {
-                            console.log(`[Playwright] Proxy IP was blocked by dealer firewall (Akamai/Access Denied). Automatically falling back to DIRECT connection...`);
-                            await this.close();
-                            return await this.crawl({ ...options, proxyUrl: 'direct' });
-                        }
-                        break;
-                    }
                     // Wait for rate-limit cooldown or Cloudflare Turnstile / anti-bot challenge to resolve
                     let isChallengePage = false;
                     const challengeStart = Date.now();

@@ -10,8 +10,12 @@ const BADGE_STYLES = {
   apr: 'bg-blue-100 text-blue-700',
   finance: 'bg-blue-100 text-blue-700',
   purchase: 'bg-emerald-100 text-emerald-700',
-  discount: 'bg-emerald-100 text-emerald-700',
-  cash: 'bg-emerald-100 text-emerald-700',
+  discount: 'bg-emerald-100 text-emerald-800 border border-emerald-300/60',
+  cash: 'bg-emerald-100 text-emerald-800 border border-emerald-300/60',
+  savings: 'bg-emerald-100 text-emerald-800 border border-emerald-300/60',
+  rebate: 'bg-emerald-100 text-emerald-800 border border-emerald-300/60',
+  'cash back': 'bg-emerald-100 text-emerald-800 border border-emerald-300/60',
+  reward: 'bg-amber-100 text-amber-800 border border-amber-300/60',
   visual: 'bg-amber-100 text-amber-800 border border-amber-200',
   'visual flyer': 'bg-amber-100 text-amber-800 border border-amber-200',
   default: 'bg-gray-100 text-gray-600',
@@ -40,6 +44,64 @@ function DollarAmount({ value }) {
     );
   }
   return trimmed;
+}
+
+function extractDiscountInfo(s) {
+  if (!s) return null;
+  const od = s.offer_details ? String(s.offer_details).trim() : '';
+  const fullText = `${od} ${s.title || ''} ${s.disclaimer || ''} ${s.raw_text || ''}`.trim();
+
+  // 1. Look for explicit dollar discounts: "$3,500 off", "save $3,500", "$3,500 total savings", "$4,000 cash back", "$1,000 gas card", etc.
+  const regexPatterns = [
+    /(?:save|saving|savings|discount|off|cash back|bonus cash|rebate|customer cash)\s*(?:up to\s*)?[:\$]?\s*\$?([0-9]{1,2},[0-9]{3}|[0-9]{3,5})/i,
+    /\$([0-9]{1,2},[0-9]{3}|[0-9]{3,5})\s*(?:off|savings|discount|cash back|bonus cash|rebate|total savings|gas card)/i,
+    /(?:save|discount|off|cash back|rebate)\s*(?:up to\s*)?([0-9]{1,2},[0-9]{3}|[0-9]{3,5})/i,
+    /\$([0-9]{1,2},[0-9]{3}|[0-9]{3,5})/
+  ];
+
+  for (const regex of regexPatterns) {
+    const m = fullText.match(regex);
+    if (m && m[1]) {
+      const num = parseInt(m[1].replace(/,/g, ''), 10);
+      if (num >= 300 && num <= 25000) {
+        let tag = 'OFF';
+        if (/cash back|bonus cash/i.test(fullText)) tag = 'CASH BACK';
+        else if (/gas card/i.test(fullText)) tag = 'GAS CARD';
+        else if (/total savings|savings/i.test(fullText)) tag = 'SAVINGS';
+        return {
+          amount: num,
+          tag,
+          display: `$${num.toLocaleString()}`
+        };
+      }
+    }
+  }
+
+  // 2. Check if offer_details has a percentage off (e.g. "10% OFF") or explicit string
+  if (od && !od.toLowerCase().includes('modal') && !od.toLowerCase().includes('details')) {
+    if (od.includes('%')) {
+      return {
+        amount: null,
+        tag: 'OFF',
+        display: od.toUpperCase().includes('OFF') ? od : `${od} OFF`
+      };
+    }
+    const cleanNum = Number(od.replace(/[^0-9]/g, ''));
+    if (!isNaN(cleanNum) && cleanNum >= 100 && cleanNum <= 25000) {
+      return {
+        amount: cleanNum,
+        tag: 'OFF',
+        display: `$${cleanNum.toLocaleString()}`
+      };
+    }
+    return {
+      amount: null,
+      tag: 'OFF',
+      display: od
+    };
+  }
+
+  return null;
 }
 
 function cleanSpecialModelAndTrim(r) {
@@ -105,10 +167,63 @@ function cleanSpecialModelAndTrim(r) {
       model = 'F-250 Super Duty';
     } else if (/^f-?350/i.test(model)) {
       model = 'F-350 Super Duty';
+    } else if (/^f-?450/i.test(model)) {
+      model = 'F-450 Super Duty';
     } else if (/^maverick/i.test(model)) {
       model = 'Maverick';
+    } else if (/^ranger/i.test(model)) {
+      model = 'Ranger';
     } else if (/^mustang/i.test(model)) {
       model = 'Mustang';
+    } else if (/^transit/i.test(model) || /\btransit\b/i.test(fullText)) {
+      model = 'Transit';
+      if (/passenger\s*van\s*xl\b/i.test(fullText) || (/passenger/i.test(fullText) && /\bxl\b/i.test(fullText))) {
+        trim = 'Passenger Van XL';
+      } else if (/passenger\s*van\s*xlt\b/i.test(fullText) || (/passenger/i.test(fullText) && /\bxlt\b/i.test(fullText))) {
+        trim = 'Passenger Van XLT';
+      } else if (/passenger/i.test(fullText)) {
+        trim = trim ? `Passenger Van ${trim.replace(/passenger\s*(van)?\s*/i, '')}`.trim() : 'Passenger Van';
+      } else if (/cargo/i.test(fullText)) {
+        trim = trim ? `Cargo Van ${trim.replace(/cargo\s*(van)?\s*/i, '')}`.trim() : 'Cargo Van';
+      }
+    }
+  } else if (make.toLowerCase() === 'kia') {
+    if (/niro\s*ev/i.test(model) || /niro\s*ev/i.test(fullText)) {
+      model = 'Niro EV';
+      if (/wave/i.test(fullText)) trim = 'Wave';
+      else if (/wind/i.test(fullText)) trim = 'Wind';
+    } else if (/^niro/i.test(model) || /\bniro\b/i.test(fullText)) {
+      model = 'Niro';
+      if (/ev/i.test(fullText)) model = 'Niro EV';
+    } else if (/ev6/i.test(model) || /ev6/i.test(fullText)) {
+      model = 'EV6';
+      if (/gt-line/i.test(fullText)) trim = 'GT-Line';
+      else if (/wind/i.test(fullText)) trim = 'Wind';
+      else if (/light/i.test(fullText)) trim = 'Light';
+    } else if (/ev9/i.test(model) || /ev9/i.test(fullText)) {
+      model = 'EV9';
+      if (/gt-line/i.test(fullText)) trim = 'GT-Line';
+      else if (/land/i.test(fullText)) trim = 'Land';
+      else if (/wind/i.test(fullText)) trim = 'Wind';
+      else if (/light/i.test(fullText)) trim = 'Light';
+    } else if (/ev3/i.test(model) || /ev3/i.test(fullText)) {
+      model = 'EV3';
+    } else if (/sportage/i.test(model) || /sportage/i.test(fullText)) {
+      model = 'Sportage';
+    } else if (/sorento/i.test(model) || /sorento/i.test(fullText)) {
+      model = 'Sorento';
+    } else if (/telluride/i.test(model) || /telluride/i.test(fullText)) {
+      model = 'Telluride';
+    } else if (/carnival/i.test(model) || /carnival/i.test(fullText)) {
+      model = 'Carnival';
+    } else if (/\bk4\b/i.test(model) || /\bk4\b/i.test(fullText)) {
+      model = 'K4';
+    } else if (/\bk5\b/i.test(model) || /\bk5\b/i.test(fullText)) {
+      model = 'K5';
+    } else if (/forte/i.test(model) || /forte/i.test(fullText)) {
+      model = 'Forte';
+    } else if (/soul/i.test(model) || /soul/i.test(fullText)) {
+      model = 'Soul';
     }
   }
 
@@ -119,6 +234,11 @@ function cleanSpecialModelAndTrim(r) {
     }
   } else if (r.apr != null && r.apr > 0) {
     specialType = 'apr';
+  } else if (
+    /\b(?:save|saving|savings|discount|off|cash back|bonus cash|rebate)\b/i.test(fullText) ||
+    specialType === 'cash'
+  ) {
+    specialType = 'discount';
   }
 
   return {
@@ -142,8 +262,27 @@ function OfferCard({ s }) {
   const isBogusDisclosurePayment = s.monthly_payment != null && s.monthly_payment < 80 && hasApr;
   const hasMonthlyPayment = !isBogusDisclosurePayment && ((s.monthly_payment != null && s.monthly_payment > 0) || (isLease && s.monthly_payment != null));
 
-  const badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease && hasMonthlyPayment ? 'lease' : hasApr ? 'apr' : rawType);
-  const badgeLabel = hasApr && !hasMonthlyPayment ? 'APR' : isLease && hasMonthlyPayment ? 'LEASE' : hasApr ? 'APR' : rawType.toUpperCase();
+  // Extract discount / savings info for cash and discount specials
+  const discountInfo = useMemo(() => {
+    if (hasMonthlyPayment || (hasApr && s.apr > 0)) return null;
+    return extractDiscountInfo(s);
+  }, [hasMonthlyPayment, hasApr, s]);
+
+  let badgeLabel = hasApr && !hasMonthlyPayment ? 'APR' : isLease && hasMonthlyPayment ? 'LEASE' : hasApr ? 'APR' : rawType.toUpperCase();
+  let badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease && hasMonthlyPayment ? 'lease' : hasApr ? 'apr' : rawType);
+
+  if (discountInfo && !hasMonthlyPayment && !hasApr) {
+    if (discountInfo.tag === 'CASH BACK') {
+      badgeLabel = 'CASH BACK';
+      badgeStyle = getBadgeStyle('cash back');
+    } else if (discountInfo.tag === 'GAS CARD') {
+      badgeLabel = 'REWARD';
+      badgeStyle = getBadgeStyle('reward');
+    } else {
+      badgeLabel = 'DISCOUNT';
+      badgeStyle = getBadgeStyle('discount');
+    }
+  }
 
   let cleanUrl = s.special_url;
   if (cleanUrl) {
@@ -233,7 +372,22 @@ function OfferCard({ s }) {
 
       {!hasMonthlyPayment && !hasApr && (
         <>
-          {s.offer_details && (
+          {discountInfo ? (
+            <div className="mt-1">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-extrabold text-gray-900 leading-tight">
+                  <DollarAmount value={discountInfo.amount || discountInfo.display} />
+                </span>
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 border border-emerald-300/80 px-1.5 py-0.5 rounded">
+                  {discountInfo.tag}
+                </span>
+              </div>
+              {s.term && <p className="text-sm font-semibold text-gray-500 mt-1">{s.term} months</p>}
+              {s.down_payment != null && (
+                <p className="text-sm font-semibold text-gray-500">${Number(s.down_payment).toLocaleString()} down</p>
+              )}
+            </div>
+          ) : s.offer_details ? (
             <p className="text-xl font-extrabold text-gray-900 leading-tight mt-1">
               {String(s.offer_details).includes('%') ? (
                 s.offer_details
@@ -243,21 +397,28 @@ function OfferCard({ s }) {
                 s.offer_details
               )}
             </p>
+          ) : (
+            <p className="text-xs font-medium text-gray-600 mt-1 line-clamp-2" title={s.title}>
+              {s.title || 'Special Offer'}
+            </p>
           )}
-          {s.term && <p className="text-sm font-semibold text-gray-500 mt-1">{s.term} months</p>}
-          {s.down_payment != null && (
+          {s.term && !discountInfo && <p className="text-sm font-semibold text-gray-500 mt-1">{s.term} months</p>}
+          {s.down_payment != null && !discountInfo && (
             <p className="text-sm font-semibold text-gray-500">${Number(s.down_payment).toLocaleString()} down</p>
           )}
         </>
       )}
 
-      {tooltip && (s.disclaimer || s.title || s.offer_details) && (
+      {tooltip && (s.disclaimer || s.title || s.offer_details || discountInfo) && (
         <div className="absolute z-50 left-0 top-full mt-1 w-80 bg-slate-800 text-white text-xs rounded-xl shadow-xl p-3 leading-relaxed pointer-events-none space-y-1.5">
           {s.title && <p className="font-semibold text-slate-100">{s.title}</p>}
           <div className="flex items-center gap-2">
             {badgeLabel && <p className={`font-bold ${badgeStyle} px-2 py-0.5 rounded-full inline-block`}>{badgeLabel}</p>}
             {hasMonthlyPayment && monthlyVal && <span className="text-white font-bold"><DollarAmount value={monthlyVal} /></span>}
             {hasApr && !hasMonthlyPayment && aprRate && <span className="text-white font-bold">{aprRate}%</span>}
+            {discountInfo && !hasMonthlyPayment && !hasApr && (
+              <span className="text-emerald-300 font-bold">{discountInfo.display} {discountInfo.tag}</span>
+            )}
           </div>
           {s.term && <p className="text-slate-300">{s.term} months</p>}
           {s.down_payment != null && <p className="text-slate-300">${Number(s.down_payment).toLocaleString()} down</p>}

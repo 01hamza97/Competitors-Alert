@@ -835,8 +835,14 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             offerDetails = `${Math.round(cleanMonthly)}`;
           } else if (cleanApr != null && cleanApr >= 0) {
             offerDetails = `${cleanApr}`;
-          } else if (r.msrp != null && r.msrp > 0) {
-            offerDetails = `${Math.round(r.msrp)}`;
+          } else {
+            const rawCombined = `${r.title || ''} ${r.disclaimer || ''}`;
+            const discMatch =
+              rawCombined.match(/(?:save|saving|savings|discount|off|cash back|bonus cash|rebate)\s*(?:up to\s*)?[:\$]?\s*\$?([0-9]{1,2},[0-9]{3}|[0-9]{3,5})/i) ||
+              rawCombined.match(/\$([0-9]{1,2},[0-9]{3}|[0-9]{3,5})\s*(?:off|savings|discount|cash back|bonus cash|rebate|total savings)/i);
+            if (discMatch) {
+              offerDetails = `$${parseInt(discMatch[1].replace(/,/g, ''), 10).toLocaleString()} OFF`;
+            }
           }
 
           let make = r.make || '';
@@ -942,6 +948,44 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
               }
               trim = 'Lariat';
             }
+          } else if (make.toLowerCase() === 'kia') {
+            if (/niro\s*ev/i.test(model) || /niro\s*ev/i.test(fullText)) {
+              model = 'Niro EV';
+              if (/wave/i.test(fullText)) trim = 'Wave';
+              else if (/wind/i.test(fullText)) trim = 'Wind';
+            } else if (/^niro/i.test(model) || /\bniro\b/i.test(fullText)) {
+              model = 'Niro';
+              if (/ev/i.test(fullText)) model = 'Niro EV';
+            } else if (/ev6/i.test(model) || /ev6/i.test(fullText)) {
+              model = 'EV6';
+              if (/gt-line/i.test(fullText)) trim = 'GT-Line';
+              else if (/wind/i.test(fullText)) trim = 'Wind';
+              else if (/light/i.test(fullText)) trim = 'Light';
+            } else if (/ev9/i.test(model) || /ev9/i.test(fullText)) {
+              model = 'EV9';
+              if (/gt-line/i.test(fullText)) trim = 'GT-Line';
+              else if (/land/i.test(fullText)) trim = 'Land';
+              else if (/wind/i.test(fullText)) trim = 'Wind';
+              else if (/light/i.test(fullText)) trim = 'Light';
+            } else if (/ev3/i.test(model) || /ev3/i.test(fullText)) {
+              model = 'EV3';
+            } else if (/sportage/i.test(model) || /sportage/i.test(fullText)) {
+              model = 'Sportage';
+            } else if (/sorento/i.test(model) || /sorento/i.test(fullText)) {
+              model = 'Sorento';
+            } else if (/telluride/i.test(model) || /telluride/i.test(fullText)) {
+              model = 'Telluride';
+            } else if (/carnival/i.test(model) || /carnival/i.test(fullText)) {
+              model = 'Carnival';
+            } else if (/\bk4\b/i.test(model) || /\bk4\b/i.test(fullText)) {
+              model = 'K4';
+            } else if (/\bk5\b/i.test(model) || /\bk5\b/i.test(fullText)) {
+              model = 'K5';
+            } else if (/forte/i.test(model) || /forte/i.test(fullText)) {
+              model = 'Forte';
+            } else if (/soul/i.test(model) || /soul/i.test(fullText)) {
+              model = 'Soul';
+            }
           }
 
           let specialType = r.specialType || (cleanApr != null ? 'apr' : 'lease');
@@ -951,6 +995,11 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             }
           } else if (cleanApr != null && cleanApr >= 0) {
             specialType = 'apr';
+          } else if (
+            (offerDetails && (offerDetails.includes('OFF') || offerDetails.includes('SAVINGS') || offerDetails.includes('CASH BACK'))) ||
+            /\b(?:save|saving|savings|discount|off|cash back|bonus cash|rebate)\b/i.test(fullText)
+          ) {
+            specialType = 'discount';
           }
 
           return {
@@ -1024,7 +1073,21 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             stagedMonthly = null;
           }
 
-          const offerType = stagedApr != null && stagedMonthly == null ? 'APR' : (aiParsed.offer_type || aiParsed.special_type || 'Visual Flyer');
+          let resolvedOfferDetails = aiParsed.offer_details || (stagedMonthly ? `${Math.round(stagedMonthly)}` : stagedApr != null ? `${stagedApr}` : '');
+          if (!resolvedOfferDetails) {
+            const rawCombined = `${aiParsed.title || ''} ${aiParsed.disclaimer || ''} ${s.rawText || ''}`;
+            const discMatch =
+              rawCombined.match(/(?:save|saving|savings|discount|off|cash back|bonus cash|rebate)\s*(?:up to\s*)?[:\$]?\s*\$?([0-9]{1,2},[0-9]{3}|[0-9]{3,5})/i) ||
+              rawCombined.match(/\$([0-9]{1,2},[0-9]{3}|[0-9]{3,5})\s*(?:off|savings|discount|cash back|bonus cash|rebate|total savings)/i);
+            if (discMatch) {
+              resolvedOfferDetails = `$${parseInt(discMatch[1].replace(/,/g, ''), 10).toLocaleString()} OFF`;
+            }
+          }
+
+          let offerType = stagedApr != null && stagedMonthly == null ? 'APR' : (aiParsed.offer_type || aiParsed.special_type || 'Visual Flyer');
+          if (!stagedMonthly && stagedApr == null && resolvedOfferDetails && (resolvedOfferDetails.includes('OFF') || resolvedOfferDetails.includes('SAVINGS') || resolvedOfferDetails.includes('CASH BACK') || resolvedOfferDetails.includes('REBATE'))) {
+            offerType = 'DISCOUNT';
+          }
 
           let stagedMake = aiParsed.make || null;
           let stagedModel = aiParsed.model || 'Visual Special';
@@ -1058,6 +1121,44 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
               stagedModel = 'F-350 Super Duty';
               if (/lariat/i.test(stagedFullText)) stagedTrim = 'Lariat';
             }
+          } else if (stagedMake && stagedMake.toLowerCase() === 'kia') {
+            if (/niro\s*ev/i.test(stagedModel) || /niro\s*ev/i.test(stagedFullText)) {
+              stagedModel = 'Niro EV';
+              if (/wave/i.test(stagedFullText)) stagedTrim = 'Wave';
+              else if (/wind/i.test(stagedFullText)) stagedTrim = 'Wind';
+            } else if (/^niro/i.test(stagedModel) || /\bniro\b/i.test(stagedFullText)) {
+              stagedModel = 'Niro';
+              if (/ev/i.test(stagedFullText)) stagedModel = 'Niro EV';
+            } else if (/ev6/i.test(stagedModel) || /ev6/i.test(stagedFullText)) {
+              stagedModel = 'EV6';
+              if (/gt-line/i.test(stagedFullText)) stagedTrim = 'GT-Line';
+              else if (/wind/i.test(stagedFullText)) stagedTrim = 'Wind';
+              else if (/light/i.test(stagedFullText)) stagedTrim = 'Light';
+            } else if (/ev9/i.test(stagedModel) || /ev9/i.test(stagedFullText)) {
+              stagedModel = 'EV9';
+              if (/gt-line/i.test(stagedFullText)) stagedTrim = 'GT-Line';
+              else if (/land/i.test(stagedFullText)) stagedTrim = 'Land';
+              else if (/wind/i.test(stagedFullText)) stagedTrim = 'Wind';
+              else if (/light/i.test(stagedFullText)) stagedTrim = 'Light';
+            } else if (/ev3/i.test(stagedModel) || /ev3/i.test(stagedFullText)) {
+              stagedModel = 'EV3';
+            } else if (/sportage/i.test(stagedModel) || /sportage/i.test(stagedFullText)) {
+              stagedModel = 'Sportage';
+            } else if (/sorento/i.test(stagedModel) || /sorento/i.test(stagedFullText)) {
+              stagedModel = 'Sorento';
+            } else if (/telluride/i.test(stagedModel) || /telluride/i.test(stagedFullText)) {
+              stagedModel = 'Telluride';
+            } else if (/carnival/i.test(stagedModel) || /carnival/i.test(stagedFullText)) {
+              stagedModel = 'Carnival';
+            } else if (/\bk4\b/i.test(stagedModel) || /\bk4\b/i.test(stagedFullText)) {
+              stagedModel = 'K4';
+            } else if (/\bk5\b/i.test(stagedModel) || /\bk5\b/i.test(stagedFullText)) {
+              stagedModel = 'K5';
+            } else if (/forte/i.test(stagedModel) || /forte/i.test(stagedFullText)) {
+              model = 'Forte';
+            } else if (/soul/i.test(stagedModel) || /soul/i.test(stagedFullText)) {
+              model = 'Soul';
+            }
           }
 
           return {
@@ -1077,7 +1178,7 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             down_payment: aiParsed.down_payment != null ? aiParsed.down_payment : null,
             apr: stagedApr,
             msrp: aiParsed.msrp != null ? aiParsed.msrp : null,
-            offer_details: aiParsed.offer_details || (stagedMonthly ? `${Math.round(stagedMonthly)}` : stagedApr != null ? `${stagedApr}` : ''),
+            offer_details: resolvedOfferDetails,
             title: aiParsed.title || `New ${aiParsed.year || ''} ${aiParsed.make || ''} ${aiParsed.model || ''}`.trim(),
             disclaimer: aiParsed.disclaimer || s.rawText || (detailsObj.disclaimer ? detailsObj.disclaimer : undefined),
             expiration_date: aiParsed.expiration_date || undefined,
