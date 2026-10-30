@@ -227,7 +227,10 @@ function cleanSpecialModelAndTrim(r) {
     }
   }
 
-  let specialType = r.special_type || r.offer_type || 'lease';
+  let specialType = (r.special_type || r.offer_type || 'lease').toLowerCase();
+  if (specialType === 'vehicle') {
+    specialType = 'cash';
+  }
   if (r.monthly_payment != null && r.monthly_payment > 0) {
     if (/\b(?:lease|leasing)\b/i.test(fullText) || !specialType) {
       specialType = 'lease';
@@ -236,7 +239,8 @@ function cleanSpecialModelAndTrim(r) {
     specialType = 'apr';
   } else if (
     /\b(?:save|saving|savings|discount|off|cash back|bonus cash|rebate)\b/i.test(fullText) ||
-    specialType === 'cash'
+    specialType === 'cash' ||
+    specialType === 'discount'
   ) {
     specialType = 'discount';
   }
@@ -254,7 +258,7 @@ function OfferCard({ s }) {
   const [tooltip, setTooltip] = useState(false);
   const ref = useRef(null);
   const rawType = s.offer_type || s.special_type || '';
-  const type = rawType.toLowerCase();
+  const type = rawType.toLowerCase() === 'vehicle' ? 'cash' : rawType.toLowerCase();
 
   const isLease = type.includes('lease');
   const hasApr = (s.apr != null && s.apr >= 0) || type === 'apr';
@@ -268,8 +272,21 @@ function OfferCard({ s }) {
     return extractDiscountInfo(s);
   }, [hasMonthlyPayment, hasApr, s]);
 
-  let badgeLabel = hasApr && !hasMonthlyPayment ? 'APR' : isLease && hasMonthlyPayment ? 'LEASE' : hasApr ? 'APR' : rawType.toUpperCase();
-  let badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease && hasMonthlyPayment ? 'lease' : hasApr ? 'apr' : rawType);
+  // If card has type "vehicle" or "cash" with no actionable terms (no monthly payment, no APR, no discount, no price/details), hide it
+  if ((rawType.toLowerCase() === 'vehicle' || type === 'cash') && !hasMonthlyPayment && !hasApr && !discountInfo && !s.offer_details && !s.selling_price && !s.down_payment && !s.term) {
+    return null;
+  }
+
+  let badgeLabel = hasApr && !hasMonthlyPayment
+    ? 'APR'
+    : isLease && hasMonthlyPayment
+    ? 'LEASE'
+    : hasApr
+    ? 'APR'
+    : type === 'cash' || rawType.toLowerCase() === 'vehicle'
+    ? 'CASH'
+    : rawType.toUpperCase();
+  let badgeStyle = getBadgeStyle(hasApr && !hasMonthlyPayment ? 'apr' : isLease && hasMonthlyPayment ? 'lease' : hasApr ? 'apr' : type === 'cash' || rawType.toLowerCase() === 'vehicle' ? 'cash' : rawType);
 
   if (discountInfo && !hasMonthlyPayment && !hasApr) {
     if (discountInfo.tag === 'CASH BACK') {
@@ -282,6 +299,12 @@ function OfferCard({ s }) {
       badgeLabel = 'DISCOUNT';
       badgeStyle = getBadgeStyle('discount');
     }
+  }
+
+  // Safety: never show "VEHICLE" as a badge label
+  if (badgeLabel === 'VEHICLE') {
+    badgeLabel = 'CASH';
+    badgeStyle = getBadgeStyle('cash');
   }
 
   let cleanUrl = s.special_url;
@@ -482,7 +505,13 @@ export default function NewVehicleSpecialsView({ store }) {
     return rawRows
       .filter(r => {
         const m = (r.model || '').toLowerCase();
-        return !m.includes('details and disclaimers') && !m.includes('open details modal');
+        if (m.includes('details and disclaimers') || m.includes('open details modal')) return false;
+        const type = (r.special_type || r.offer_type || '').toLowerCase();
+        // Hide card if it's an unclassified 'vehicle' card with no actionable terms
+        if (type === 'vehicle' && !r.monthly_payment && r.apr == null && !r.offer_details && !r.selling_price) {
+          return false;
+        }
+        return true;
       })
       .map(cleanSpecialModelAndTrim);
   }, [rawRows]);
@@ -504,16 +533,24 @@ export default function NewVehicleSpecialsView({ store }) {
     const src = makeFilter === 'all' ? rows : rows.filter(r => r.make === makeFilter);
     return [...new Set(src.map(r => r.model).filter(Boolean))].sort();
   }, [rows, makeFilter]);
-  const offerTypes = useMemo(() => [...new Set(rows.map(r => r.offer_type).filter(Boolean))].sort(), [rows]);
+  const offerTypes = useMemo(() => {
+    const raw = rows.map(r => r.offer_type).filter(Boolean);
+    const cleaned = raw
+      .map(t => (t.toLowerCase() === 'vehicle' ? 'cash' : t.toLowerCase()))
+      .filter(t => t !== 'vehicle');
+    return [...new Set(cleaned)].sort();
+  }, [rows]);
   // Always use configured canonical names as columns
   const dealers = useMemo(() => canonicalNames, [canonicalNames]);
 
   const filtered = useMemo(() => rows.filter(r => {
     if (view === 'pivot' && r.is_pending_ai) return false;
+    const rType = (r.offer_type || '').toLowerCase() === 'vehicle' ? 'cash' : (r.offer_type || '').toLowerCase();
+    const fType = offerTypeFilter.toLowerCase();
     return (
       (makeFilter === 'all' || r.make === makeFilter) &&
       (modelFilter === 'all' || r.model === modelFilter) &&
-      (offerTypeFilter === 'all' || r.offer_type === offerTypeFilter)
+      (offerTypeFilter === 'all' || rType === fType)
     );
   }), [rows, view, makeFilter, modelFilter, offerTypeFilter]);
 
@@ -754,7 +791,7 @@ export default function NewVehicleSpecialsView({ store }) {
         {offerTypes.length > 0 && (
           <select value={offerTypeFilter} onChange={e => setOfferTypeFilter(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none">
             <option value="all">All Offer Types</option>
-            {offerTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            {offerTypes.map(t => <option key={t} value={t}>{t.toUpperCase()}</option>)}
           </select>
         )}
 

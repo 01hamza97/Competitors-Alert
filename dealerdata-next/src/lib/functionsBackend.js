@@ -1000,6 +1000,8 @@ export async function handleCompetitorVehicleSpecials({ competitor_names = [], s
             /\b(?:save|saving|savings|discount|off|cash back|bonus cash|rebate)\b/i.test(fullText)
           ) {
             specialType = 'discount';
+          } else if (specialType === 'vehicle') {
+            specialType = 'cash';
           }
 
           return {
