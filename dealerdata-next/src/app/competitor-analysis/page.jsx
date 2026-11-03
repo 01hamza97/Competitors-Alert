@@ -3,12 +3,14 @@
 import { useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ModelInventoryView from '@/components/competitive/ModelInventoryView';
+import SoldVehiclesView from '@/components/competitive/SoldVehiclesView';
 import NewVehicleSpecialsView from '@/components/competitive/NewVehicleSpecialsView';
 import ServiceSpecialsView from '@/components/competitive/ServiceSpecialsView';
 import { useDealer } from '@/lib/DealerContext';
 
 const VIEWS = [
   { key: 'inventory', label: 'Inventory & Pricing', desc: 'Units in stock and price ranges per model across all competitors' },
+  { key: 'sold', label: 'Sold Vehicles', desc: 'Vehicles sold (removed from website) vs. the prior day snapshot across all competitors' },
   { key: 'new_specials', label: 'New Vehicle Specials', desc: 'Current financing and lease specials on new vehicles' },
 ];
 
@@ -58,6 +60,7 @@ function CompetitorAnalysisContent() {
       {/* Content */}
       <div>
         {activeView === 'inventory' && <ModelInventoryView store={selectedStore} />}
+        {activeView === 'sold' && <SoldVehiclesView store={selectedStore} />}
         {activeView === 'new_specials' && <NewVehicleSpecialsView store={selectedStore} />}
         {activeView === 'service_specials' && <ServiceSpecialsView store={selectedStore} />}
       </div>

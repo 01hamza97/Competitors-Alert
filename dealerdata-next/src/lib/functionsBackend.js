@@ -775,6 +775,208 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
   }
 }
 
+// ── Competitor Sold Vehicles (Removed vs Prior Day Snapshot) ──────────────────
+export async function handleCompetitorSoldVehicles({ dealer_id, snapshot_date }) {
+  if (process.env.DATABASE_URL) {
+    try {
+      const where = {};
+      let targetIds = [];
+
+      if (dealer_id) {
+        const cleanKey = dealer_id.replace(/^store_/, '');
+        targetIds.push(cleanKey, `store_${cleanKey}`, dealer_id);
+
+        const parentStore = await prisma.store.findFirst({
+          where: {
+            OR: [
+              { id: dealer_id },
+              { id: `store_${cleanKey}` },
+              { dealershipKey: cleanKey },
+              { scraperStoreId: cleanKey },
+            ],
+          },
+          include: { competitors: true },
+        });
+
+        if (parentStore?.competitors?.length > 0) {
+          for (const c of parentStore.competitors) {
+            targetIds.push(c.competitorKey, `comp_${c.competitorKey}`);
+          }
+        }
+      }
+
+      if (targetIds.length > 0) {
+        where.dealerId = { in: [...new Set(targetIds)] };
+      }
+
+      const allDates = (
+        await prisma.competitorVehicleInventory.findMany({
+          where,
+          select: { snapshotDate: true },
+          distinct: ['snapshotDate'],
+          orderBy: { snapshotDate: 'desc' },
+        })
+      ).map((r) => r.snapshotDate);
+
+      const activeDate = snapshot_date || allDates[0] || null;
+      if (!activeDate) {
+        return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {} };
+      }
+
+      // Build name mapping for stores and competitors
+      const stores = await prisma.store.findMany({
+        select: { id: true, name: true, dealershipKey: true, scraperStoreId: true }
+      });
+      const nameMap = {};
+      for (const s of stores) {
+        nameMap[s.id] = s.name;
+        nameMap[s.dealershipKey] = s.name;
+        if (s.scraperStoreId) nameMap[s.scraperStoreId] = s.name;
+      }
+
+      const comps = await prisma.storeCompetitor.findMany({
+        select: { id: true, competitorKey: true, competitorName: true }
+      });
+      for (const c of comps) {
+        nameMap[c.id] = c.competitorName;
+        nameMap[c.competitorKey] = c.competitorName;
+        nameMap[`comp_${c.competitorKey}`] = c.competitorName;
+      }
+
+      const uniqueTargets = [...new Set(targetIds.map(id => id.replace(/^store_/, '').replace(/^comp_/, '')))];
+      let allSoldRows = [];
+      const perDealerPriorDates = {};
+
+      for (const tKey of uniqueTargets) {
+        const dealerVariantIds = [tKey, `store_${tKey}`, `comp_${tKey}`];
+
+        // Find current snapshot date for this dealer <= activeDate
+        const currentSnap = await prisma.competitorVehicleInventory.findFirst({
+          where: {
+            dealerId: { in: dealerVariantIds },
+            snapshotDate: { lte: activeDate },
+          },
+          orderBy: { snapshotDate: 'desc' },
+          select: { snapshotDate: true },
+        });
+
+        if (!currentSnap) continue;
+        const currentSnapDate = currentSnap.snapshotDate;
+
+        // Find prior snapshot date strictly before currentSnapDate
+        const priorSnap = await prisma.competitorVehicleInventory.findFirst({
+          where: {
+            dealerId: { in: dealerVariantIds },
+            snapshotDate: { lt: currentSnapDate },
+          },
+          orderBy: { snapshotDate: 'desc' },
+          select: { snapshotDate: true },
+        });
+
+        if (!priorSnap) continue;
+        const priorSnapDate = priorSnap.snapshotDate;
+        perDealerPriorDates[tKey] = priorSnapDate;
+
+        // Fetch current snapshot VINs
+        const currentRows = await prisma.competitorVehicleInventory.findMany({
+          where: {
+            dealerId: { in: dealerVariantIds },
+            snapshotDate: currentSnapDate,
+          },
+          select: { vin: true },
+        });
+        const currentVins = new Set(
+          currentRows.map(r => (r.vin || '').trim().toUpperCase()).filter(Boolean)
+        );
+
+        // Fetch prior snapshot vehicles
+        const priorRows = await prisma.competitorVehicleInventory.findMany({
+          where: {
+            dealerId: { in: dealerVariantIds },
+            snapshotDate: priorSnapDate,
+          },
+          take: 5000,
+        });
+
+        // Sold = present in prior snapshot, but absent in current snapshot
+        const soldRows = priorRows.filter(r => {
+          const vin = (r.vin || '').trim().toUpperCase();
+          return vin && !currentVins.has(vin);
+        });
+
+        allSoldRows = allSoldRows.concat(soldRows);
+      }
+
+      // Deduplicate by clean dealer key + VIN
+      const seenDealerVins = new Set();
+      const dedupedRows = [];
+      for (const r of allSoldRows) {
+        const cleanDealerKey = (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, '');
+        const vinKey = `${cleanDealerKey}_${(r.vin || '').trim().toUpperCase()}`;
+        if (r.vin && seenDealerVins.has(vinKey)) continue;
+        if (r.vin) seenDealerVins.add(vinKey);
+        dedupedRows.push(r);
+      }
+
+      const formattedData = dedupedRows.map(r => {
+        const cleanDealerKey = (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, '');
+        const displayName = nameMap[r.dealerId] || nameMap[cleanDealerKey] || cleanDealerKey;
+        nameMap[cleanDealerKey] = displayName;
+
+        const normalized = normalizeVehicle({
+          make: r.make,
+          model: r.model,
+          trim: r.trim,
+          vehicleUrl: r.vehicleUrl || r.vehicle_url,
+        });
+        const normMake = normalized.make || 'Unknown';
+        const normModel = normalized.model || 'Unknown';
+        const normTrim = normalized.trim || undefined;
+
+        return {
+          id: r.id,
+          dealer_id: cleanDealerKey,
+          competitor_id: cleanDealerKey,
+          competitor_dealer_name: displayName,
+          snapshot_date: activeDate,
+          prior_snapshot_date: perDealerPriorDates[cleanDealerKey] || null,
+          vin: r.vin,
+          stock_number: r.stockNumber,
+          year: r.year,
+          make: normMake,
+          model: normModel,
+          trim: normTrim,
+          body_style: r.bodyStyle,
+          inventory_type: r.inventoryType || 'New',
+          list_price: r.listPrice,
+          low_price: r.listPrice,
+          high_price: r.listPrice,
+          inventory_count: 1, // 1 sold unit
+          msrp: r.msrp,
+          dealer_discount: r.dealerDiscount,
+          mileage: r.mileage,
+          days_in_stock: r.daysInStock,
+          vehicle_url: r.vehicleUrl,
+          image_url: r.imageUrl,
+        };
+      });
+
+      return {
+        data: formattedData,
+        matrix: formattedData,
+        available_dates: allDates,
+        snapshot_date: activeDate,
+        per_dealer_prior_dates: perDealerPriorDates,
+        competitor_id_to_name: nameMap,
+      };
+    } catch (e) {
+      console.warn('Prisma handleCompetitorSoldVehicles fallback:', e.message);
+    }
+  }
+
+  return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {} };
+}
+
 // ── Competitor Vehicle Specials ───────────────────────────────────────────────
 export async function handleCompetitorVehicleSpecials({ competitor_names = [], snapshot_date, store_id }) {
   if (process.env.DATABASE_URL) {

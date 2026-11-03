@@ -27,6 +27,7 @@ const navItems = [
 
 const competitorSubnav = [
   { path: '/competitor-analysis?view=inventory', label: 'Inventory & Pricing' },
+  { path: '/competitor-analysis?view=sold', label: 'Sold Vehicles' },
   { path: '/competitor-analysis?view=new_specials', label: 'New Specials' },
 ];
 
