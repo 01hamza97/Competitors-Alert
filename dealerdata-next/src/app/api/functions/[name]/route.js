@@ -25,6 +25,7 @@ import {
   handleScraperInventoryHealth,
   handleTriggerScraper,
   handleSendPreviewEmail,
+  handleCompetitorSnapshotEmail,
 } from '@/lib/functionsBackend';
 
 const FUNCTION_HANDLERS = {
@@ -54,6 +55,9 @@ const FUNCTION_HANDLERS = {
   scraperInventoryHealth: handleScraperInventoryHealth,
   triggerScraper: handleTriggerScraper,
   sendPreviewEmail: handleSendPreviewEmail,
+  getCompetitorSnapshotHtml: handleCompetitorSnapshotEmail,
+  sendCompetitorSnapshotEmail: handleCompetitorSnapshotEmail,
+  competitorSnapshotEmail: handleCompetitorSnapshotEmail,
 };
 
 export async function POST(request, { params }) {

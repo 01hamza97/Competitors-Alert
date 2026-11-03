@@ -1,6 +1,6 @@
-import prisma from '@/lib/prisma';
-import { launchScraperJob } from '@/lib/scraperRunner';
-import { normalizeMake, normalizeModel, normalizeTrim, normalizeVehicle } from '@/lib/vehicleNormalization';
+import prisma from './prisma.js';
+import { launchScraperJob } from './scraperRunner.js';
+import { normalizeMake, normalizeModel, normalizeTrim, normalizeVehicle } from './vehicleNormalization.js';
 
 function getSbHeaders() {
   const key = process.env.SUPABASE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -2471,18 +2471,19 @@ export async function handleTriggerScraper({
 }
 
 // ── Email Sending via Resend ──────────────────────────────────────────────────
-export async function handleSendPreviewEmail({ to, subject, html }) {
+export async function handleSendPreviewEmail({ to, subject, html, from }) {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     console.log('[sendPreviewEmail simulated]', { to, subject });
     return { success: true, simulated: true, sent_to: to };
   }
   const recipients = Array.isArray(to) ? to : [to];
-  const res = await fetch('https://api.resend.com/emails', {
+  const fromAddress = from || process.env.RESEND_FROM || 'CompetiTracker <reports@mktgtrends.com>';
+  let res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: 'Dealer Intelligence <reports@mktgtrends.com>',
+      from: fromAddress,
       reply_to: 'hello@mktgtrends.com',
       to: recipients,
       subject,
@@ -2491,7 +2492,45 @@ export async function handleSendPreviewEmail({ to, subject, html }) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    if (err.message && err.message.toLowerCase().includes('domain') && !fromAddress.includes('resend.dev')) {
+      console.warn('[Resend] Domain not verified, retrying with onboarding@resend.dev');
+      res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'CompetiTracker <onboarding@resend.dev>',
+          to: recipients,
+          subject,
+          html,
+        }),
+      });
+      if (res.ok) {
+        return { success: true, sent_to: recipients, note: 'Sent via onboarding@resend.dev' };
+      }
+    }
     throw new Error(err.message || 'Resend error');
   }
   return { success: true, sent_to: recipients };
+}
+
+export async function handleCompetitorSnapshotEmail({ store_id, store_name, store_key, date, to, send = false, subject }) {
+  const { buildCompetitorSnapshotHtml } = await import('./competitorEmailBuilder.js');
+  const html = await buildCompetitorSnapshotHtml({
+    storeId: store_id,
+    storeName: store_name,
+    storeKey: store_key,
+    date,
+  });
+
+  if (send && to) {
+    const emailSubject = subject || `CompetiTracker Daily Snapshot - ${store_name || 'Competitor Analysis'}`;
+    const sendResult = await handleSendPreviewEmail({
+      to,
+      subject: emailSubject,
+      html,
+    });
+    return { success: true, sent: true, html, ...sendResult };
+  }
+
+  return { success: true, html };
 }

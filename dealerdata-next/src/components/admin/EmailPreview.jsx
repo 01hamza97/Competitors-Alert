@@ -306,8 +306,27 @@ export default function EmailPreview() {
   // Date label: "May 12 2026"
   const dateLabel = format(todayDateObj, 'MMMM d yyyy');
 
+  const [competitorStoreId, setCompetitorStoreId] = useState(null);
+  const currentCompetitorStore = (activeStores && activeStores.find(s => s.id === competitorStoreId)) ||
+    activeStores?.[0] ||
+    allStores?.[0] ||
+    null;
+
+  const { data: competitorEmailData, isLoading: competitorEmailLoading } = useQuery({
+    queryKey: ['competitorEmailHtml', currentCompetitorStore?.id],
+    enabled: active === 'competitor' && !!currentCompetitorStore?.id,
+    queryFn: () => base44.functions.invoke('getCompetitorSnapshotHtml', {
+      store_id: currentCompetitorStore.id,
+      store_name: currentCompetitorStore.name,
+      store_key: currentCompetitorStore.dealership_key,
+    }).then(r => r.data),
+  });
+
   // Build subject based on active tab + view type
   const getSubject = () => {
+    if (active === 'competitor') {
+      return `CompetiTracker Daily Snapshot - ${currentCompetitorStore?.name || selectedLabel} - ${dateLabel}`;
+    }
     if (active === 'activity') {
       return isGroup
         ? `Appointments & Activity - ${selectedLabel} - ${dateLabel}`
@@ -422,6 +441,8 @@ export default function EmailPreview() {
       let fnName = 'sendPreviewEmail';
       if (active === 'internet') {
         fnName = isGroup ? 'sendDailySummaryEmail' : 'sendStoreInternetEmail';
+      } else if (active === 'competitor') {
+        fnName = 'sendCompetitorSnapshotEmail';
       }
       const result = await base44.functions.invoke(fnName, { to: allRecipients, subject: getSubject(), html });
       if (result?.data?.success) {
@@ -469,6 +490,8 @@ export default function EmailPreview() {
       let fnName = 'sendPreviewEmail';
       if (active === 'internet') {
         fnName = isGroup ? 'sendDailySummaryEmail' : 'sendStoreInternetEmail';
+      } else if (active === 'competitor') {
+        fnName = 'sendCompetitorSnapshotEmail';
       }
       const result = await base44.functions.invoke(fnName, { to: allRecipients, subject: getSubject(), html });
 
@@ -526,16 +549,40 @@ export default function EmailPreview() {
             >
               Appointments & Activity
             </Button>
+            <Button
+              size="sm"
+              variant={active === 'competitor' ? 'default' : 'outline'}
+              onClick={() => setActive('competitor')}
+              className={active === 'competitor' ? 'bg-slate-900 hover:bg-slate-800' : ''}
+            >
+              Competitor Snapshot
+            </Button>
           </div>
+
+          {active === 'competitor' && (
+            <div className="flex items-center gap-2 ml-2">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Store:</span>
+              <select
+                value={currentCompetitorStore?.id || ''}
+                onChange={e => setCompetitorStoreId(e.target.value)}
+                className="text-xs border border-gray-300 rounded-lg px-2.5 py-1.5 bg-white text-gray-800 font-medium focus:ring-1 focus:ring-blue-500"
+              >
+                {(activeStores?.length > 0 ? activeStores : allStores).map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div className="ml-auto flex gap-2">
             <Button
               size="sm"
               className="gap-1.5 bg-slate-900 hover:bg-slate-800"
-              onClick={openGroupDialog}
+              onClick={active === 'competitor' ? openSendDialog : (isGroup ? openGroupDialog : openSendDialog)}
               disabled={sending}
             >
               <Send size={13} />
-              {sending ? 'Sending…' : 'Send Group'}
+              {sending ? 'Sending…' : (active === 'competitor' ? 'Send Test Email' : (isGroup ? 'Send Group' : 'Send Test Email'))}
             </Button>
           </div>
         </div>
@@ -570,6 +617,20 @@ export default function EmailPreview() {
             appointmentRows={appointmentRows}
             {...storeActivityData}
           />
+        )}
+        {active === 'competitor' && (
+          competitorEmailLoading ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-500">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto mb-3" />
+              Loading live competitor snapshot for {currentCompetitorStore?.name}...
+            </div>
+          ) : competitorEmailData?.html ? (
+            <div dangerouslySetInnerHTML={{ __html: competitorEmailData.html }} />
+          ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-400">
+              No competitor snapshot data available for {currentCompetitorStore?.name}.
+            </div>
+          )
         )}
         {active === 'internet' && !groupInternetData && !storeInternetData && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
