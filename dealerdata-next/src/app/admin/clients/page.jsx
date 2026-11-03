@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Link from 'next/link';
 import ScraperControlHub from '@/components/admin/ScraperControlHub';
-import { RefreshCw, Mail, ChevronDown, ChevronRight, AlertTriangle, ExternalLink, Zap } from 'lucide-react';
+import { RefreshCw, Mail, ChevronDown, ChevronRight, AlertTriangle, ExternalLink, Zap, Database } from 'lucide-react';
 import TeamAndRbacSettings from '@/components/settings/TeamAndRbacSettings';
 import EmailPreview from '@/components/admin/EmailPreview';
 import SectionCard from '@/components/SectionCard';
@@ -13,6 +13,7 @@ import UnifiedStoreList from '@/components/admin/UnifiedStoreList';
 import InternetLeadGroupings from '@/components/admin/InternetLeadGroupings';
 import VehicleModelGroups from '@/components/admin/VehicleModelGroups';
 import DealersJsonImport from '@/components/admin/DealersJsonImport';
+import DatabaseBackupManager from '@/components/admin/DatabaseBackupManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Building2 } from 'lucide-react';
 
@@ -38,7 +39,7 @@ function AdvancedMigrationTools() {
 }
 
 export default function AdminClients() {
-  const [leadGroupsStoreId, setLeadGroupsStoreId] = useState('');
+  const [leadGroupsStoreId, setLeadGroupsStoreId] = useState('__all__');
 
   const { data: user } = useQuery({
     queryKey: ['currentUser'],
@@ -56,12 +57,6 @@ export default function AdminClients() {
   });
 
   const isLoading = loadingGroups || loadingStores;
-
-  useEffect(() => {
-    if (stores.length > 0 && !leadGroupsStoreId) {
-      setLeadGroupsStoreId('__all__');
-    }
-  }, [stores, leadGroupsStoreId]);
 
   const selectedLeadGroupStore = leadGroupsStoreId === '__all__' ? null : stores.find(s => s.id === leadGroupsStoreId);
 
@@ -98,10 +93,17 @@ export default function AdminClients() {
           <TabsTrigger value="scraper" className="gap-1.5 text-amber-900 font-semibold bg-amber-50/50 data-[state=active]:bg-amber-100/80 data-[state=active]:text-amber-950">
             <Zap size={14} className="text-amber-500 fill-amber-500" /> Scraper Operations
           </TabsTrigger>
+          <TabsTrigger value="backups" className="gap-1.5 text-blue-900 font-semibold bg-blue-50/50 data-[state=active]:bg-blue-100/80 data-[state=active]:text-blue-950">
+            <Database size={14} className="text-blue-500" /> Database Backups
+          </TabsTrigger>
           <TabsTrigger value="email-preview" className="gap-1.5">
             <Mail size={14} /> Email Preview
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="backups" className="mt-4">
+          <DatabaseBackupManager />
+        </TabsContent>
 
         <TabsContent value="scraper" className="mt-4">
           <ScraperControlHub />

@@ -235,3 +235,29 @@ export async function destroySession(token) {
     saveSessions(sessions);
   }
 }
+
+export async function getAuthUser(request) {
+  if (!request) return null;
+  const authHeader = request.headers?.get?.('authorization');
+  const token =
+    authHeader?.replace?.('Bearer ', '') ||
+    request.cookies?.get?.('dealerdata_session')?.value ||
+    request.cookies?.get?.('session_token')?.value;
+
+  if (token) {
+    const user = await getSessionUser(token);
+    if (user) return user;
+  }
+
+  // Fallback for local development if running in development mode
+  if (process.env.NODE_ENV === 'development') {
+    const users = getUsers();
+    const adminUser = users.find((u) => u.role === 'admin') || DEFAULT_USERS[0];
+    if (adminUser) {
+      const { password, ...safeUser } = adminUser;
+      return safeUser;
+    }
+  }
+
+  return null;
+}
