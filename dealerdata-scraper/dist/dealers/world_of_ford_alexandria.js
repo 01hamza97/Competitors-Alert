@@ -159,19 +159,60 @@ class WorldOfFordAlexandriaInventoryScraper {
                     logger.log(`Next page button is not visible on page ${pageNum}. Reached final page.`);
                     break;
                 }
-                // Perform in-page click with session preservation to avoid cold reload Akamai 429 rate-limits
+                const nextHref = await nextBtn.getAttribute('href');
+                const targetUrl = nextHref
+                    ? (nextHref.startsWith('http') ? nextHref : `${rootUrl}${nextHref.startsWith('/') ? '' : '/'}${nextHref}`)
+                    : null;
+                // Ensure popups, consent banners, and overlays are thoroughly dismissed/purged
+                await this.dismissPopups(page);
+                // Perform in-page navigation: Multi-tier fallback immune to pointer interception
                 try {
-                    await nextBtn.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => { });
-                    await Promise.all([
-                        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => { }),
-                        nextBtn.click({ timeout: 3000 })
-                    ]);
-                    // Polite delay between pages to preserve connection & avoid bot triggers
+                    let navigated = false;
+                    // Tier 1: In-page JS click (completely bypasses CSS/DOM overlay pointer-blocking)
+                    try {
+                        await Promise.all([
+                            page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => { }),
+                            page.evaluate(() => {
+                                const btn = document.querySelector('a[rel="next"], .pagination-next:not(.disabled) a, a[aria-label*="Next" i]:not([aria-disabled="true"]):not([class*="disabled"]), a:has-text("Next")');
+                                if (btn)
+                                    btn.click();
+                            })
+                        ]);
+                        navigated = page.url() !== currentUrl;
+                    }
+                    catch { }
+                    // Tier 2: Playwright force click (bypasses hit-testing & pointer interceptions)
+                    if (!navigated) {
+                        try {
+                            await Promise.all([
+                                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => { }),
+                                nextBtn.click({ force: true, timeout: 5000 })
+                            ]);
+                            navigated = page.url() !== currentUrl;
+                        }
+                        catch { }
+                    }
+                    // Tier 3: Client-side in-page window.location navigation (inherits active session cookies, zero 429 risk)
+                    if (!navigated && targetUrl) {
+                        try {
+                            await Promise.all([
+                                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => { }),
+                                page.evaluate((dest) => { window.location.href = dest; }, targetUrl)
+                            ]);
+                            navigated = page.url() !== currentUrl;
+                        }
+                        catch { }
+                    }
+                    if (!navigated) {
+                        logger.warn(`Page ${pageNum} did not transition to next page. Concluding pagination.`);
+                        break;
+                    }
+                    // Polite pacing between pages to maintain session and avoid rate-limits
                     await page.waitForTimeout(2200);
                     pageNum++;
                 }
                 catch (clickErr) {
-                    logger.warn(`Next page click navigation notice: ${clickErr.message}. Ending pagination.`);
+                    logger.warn(`Next page navigation notice: ${clickErr.message}. Ending pagination.`);
                     break;
                 }
             }
@@ -219,7 +260,12 @@ class WorldOfFordAlexandriaInventoryScraper {
         return undefined;
     }
     async dismissPopups(page) {
+        // 1. Click accept / allow buttons if visible
         const popups = [
+            '#ca-consent-root button:has-text("Allow")',
+            '#ca-consent-root button.ca-button-opt-in',
+            'button:has-text("Allow all cookies")',
+            'button:has-text("Accept All")',
             'button[aria-label="Close"]',
             'button.close',
             '.modal-close',
@@ -230,12 +276,32 @@ class WorldOfFordAlexandriaInventoryScraper {
         for (const sel of popups) {
             try {
                 const el = page.locator(sel).first();
-                if (await el.isVisible({ timeout: 300 })) {
-                    await el.click({ timeout: 500 });
+                if (await el.isVisible({ timeout: 200 }).catch(() => false)) {
+                    await el.click({ force: true, timeout: 500 }).catch(() => { });
                 }
             }
             catch { }
         }
+        // 2. Remove all blocking overlays & consent roots from DOM to guarantee zero pointer interception
+        await page.evaluate(() => {
+            try {
+                const selectors = [
+                    '#ca-consent-root',
+                    '.ui-widget-overlay',
+                    '.ui-dialog',
+                    '[id*="consent"]',
+                    '[class*="ca-banner"]',
+                    '.modal-backdrop',
+                    '.dialog-backdrop'
+                ];
+                document.querySelectorAll(selectors.join(', ')).forEach((el) => {
+                    el.remove();
+                });
+                document.body.style.overflow = 'auto';
+                document.documentElement.style.overflow = 'auto';
+            }
+            catch { }
+        }).catch(() => { });
     }
     async scrapeFromSitemap(rootUrl, dealerId, dealerName, inventoryType, logger) {
         const sitemapUrl = `${rootUrl}/sitemap.xml`;
