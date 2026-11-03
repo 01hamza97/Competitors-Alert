@@ -17,6 +17,7 @@ import { KiaOfDtlaScraper } from './kia_of_dtla';
 import { HarborChevyScraper } from './harbor_chevy';
 import { GeorgeChevroletScraper } from './george_chevrolet';
 import { PenskeChevroletScraper } from './penske_chevrolet';
+import { PremierChevroletScraper } from './premier_chevrolet';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -76,6 +77,15 @@ export class DealerRegistry {
     DealerRegistry.scrapers.set('penskechevroletofcerritos.com', penske);
     DealerRegistry.scrapers.set('storecompetitor_1792686519183_jlhq1', penske);
     DealerRegistry.scrapers.set('1792686519183_jlhq1', penske);
+    const premier = new PremierChevroletScraper();
+    DealerRegistry.register(premier);
+    DealerRegistry.scrapers.set('premier_chevrolet', premier);
+    DealerRegistry.scrapers.set('premierchevrolet', premier);
+    DealerRegistry.scrapers.set('premier_chevy', premier);
+    DealerRegistry.scrapers.set('premierchevy', premier);
+    DealerRegistry.scrapers.set('premierchevybp.com', premier);
+    DealerRegistry.scrapers.set('storecompetitor_1792686616118_qrupm', premier);
+    DealerRegistry.scrapers.set('1792686616118_qrupm', premier);
   }
 
   static register(scraper: DealerSpecialsScraper): void {
