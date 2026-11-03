@@ -1,8 +1,8 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
-import prisma from '@/lib/prisma';
-import { normalizeDomain } from '@/lib/domainUtils';
+import prisma from './prisma.js';
+import { normalizeDomain } from './domainUtils.js';
 
 /**
  * Creates a run log entry in MySQL

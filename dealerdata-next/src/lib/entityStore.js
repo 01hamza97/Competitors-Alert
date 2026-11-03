@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { getSupabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from './supabase.js';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 
