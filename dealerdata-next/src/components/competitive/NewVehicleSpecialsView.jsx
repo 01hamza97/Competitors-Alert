@@ -1,4 +1,5 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { format } from 'date-fns';
@@ -455,6 +456,9 @@ function OfferCard({ s }) {
 }
 
 export default function NewVehicleSpecialsView({ store }) {
+  const searchParams = useSearchParams();
+  const paramDate = searchParams?.get('date');
+
   const storeId = store?.id || null;
   const storeName = store?.name || null;
 
@@ -480,7 +484,14 @@ export default function NewVehicleSpecialsView({ store }) {
     return [...new Set(names)];
   }, [storeName, storeCompetitors]);
 
-  const [snapshotDate, setSnapshotDate] = useState(null);
+  const [snapshotDate, setSnapshotDate] = useState(() => paramDate || null);
+
+  useEffect(() => {
+    if (paramDate) {
+      setSnapshotDate(paramDate);
+    }
+  }, [paramDate]);
+
   const [view, setView] = useState('pivot');
   const [makeFilter, setMakeFilter] = useState('all');
   const [modelFilter, setModelFilter] = useState('all');

@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { format, parseISO } from 'date-fns';
@@ -51,25 +52,57 @@ function PriceDisplay({ numericValue, priceText }) {
 
 export default function SoldVehiclesView({ store }) {
   const { isDealerLoading } = useDealer();
+  const searchParams = useSearchParams();
+
+  const paramTrim = searchParams?.get('trim');
+  const paramYear = searchParams?.get('year');
+  const paramDate = searchParams?.get('date');
+  const paramMode = searchParams?.get('mode') || searchParams?.get('columns');
+
   const storeId = store?.id || null;
   const storeName = store?.name || null;
   const dealershipKey = store?.dealership_key || null;
 
-  const [snapshotDate, setSnapshotDate] = useState(null);
-  const [priceMode, setPriceMode] = useState('units'); // 'units' | 'all'
+  const [snapshotDate, setSnapshotDate] = useState(() => paramDate || null);
+  const [priceMode, setPriceMode] = useState(() => paramMode === 'all' ? 'all' : 'units'); // 'units' | 'all'
 
-  // Reset snapshot date whenever dealershipKey changes
+  // Reset snapshot date whenever dealershipKey changes (unless paramDate is specified)
   const prevDealershipKeyRef = useRef(dealershipKey);
   if (prevDealershipKeyRef.current !== dealershipKey) {
     prevDealershipKeyRef.current = dealershipKey;
-    setSnapshotDate(null);
+    setSnapshotDate(paramDate || null);
   }
 
   const [modelFilter, setModelFilter] = useState('all');
   const [makeFilter, setMakeFilter] = useState('all');
   const [yearFilter, setYearFilter] = useState('all');
-  const [showYear, setShowYear] = useState(true);
-  const [showTrim, setShowTrim] = useState(false);
+
+  const initialShowYear = paramYear === 'false' || paramYear === '0' ? false : true;
+  const initialShowTrim = paramTrim === 'true' || paramTrim === '1' ? true : false;
+
+  const [showYear, setShowYear] = useState(initialShowYear);
+  const [showTrim, setShowTrim] = useState(initialShowTrim);
+
+  // Synchronize state if URL params change dynamically
+  useEffect(() => {
+    if (paramTrim === 'true' || paramTrim === '1') {
+      setShowTrim(true);
+    } else if (paramTrim === 'false' || paramTrim === '0') {
+      setShowTrim(false);
+    }
+    if (paramYear === 'true' || paramYear === '1') {
+      setShowYear(true);
+    } else if (paramYear === 'false' || paramYear === '0') {
+      setShowYear(false);
+    }
+    if (paramMode === 'all') {
+      setPriceMode('all');
+    }
+    if (paramDate) {
+      setSnapshotDate(paramDate);
+    }
+  }, [paramTrim, paramYear, paramMode, paramDate]);
+
   const [sortBy, setSortBy] = useState('year');
   const [sortDir, setSortDir] = useState('desc');
 

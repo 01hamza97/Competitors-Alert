@@ -9,6 +9,15 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
   },
+  async redirects() {
+    return [
+      {
+        source: '/competitive-analysis',
+        destination: '/competitor-analysis',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

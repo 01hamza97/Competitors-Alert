@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { normalizeDealerId } from '@/lib/useSupabaseData';
+import { findMatchingStore } from '@/lib/storeMatching';
 
 const DealerContext = createContext(null);
 
@@ -32,8 +33,34 @@ export function DealerProvider({ children }) {
 
   const isDealerLoading = groupsLoading || storesLoading;
 
-  // Auto-select first option if nothing is selected and data loads
+  // Check URL query parameters or auto-select first option when data loads
   useEffect(() => {
+    if (typeof window !== 'undefined' && stores.length > 0) {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlStore = urlParams.get('store') || urlParams.get('store_id') || urlParams.get('store_name') || urlParams.get('dealer') || urlParams.get('dealer_id');
+        if (urlStore) {
+          const matched = findMatchingStore(stores, urlStore);
+          if (matched) {
+            if (matched.group_id && groups.some(g => g.id === matched.group_id)) {
+              setSelectedId(matched.group_id);
+              setSelectedType('group');
+              localStorage.setItem('selectedDealerId', matched.group_id);
+              localStorage.setItem('selectedDealerType', 'group');
+            } else {
+              setSelectedId(matched.id);
+              setSelectedType('store');
+              localStorage.setItem('selectedDealerId', matched.id);
+              localStorage.setItem('selectedDealerType', 'store');
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('[DealerContext] Error reading URL store param:', e);
+      }
+    }
+
     if (!selectedId && (groups.length > 0 || stores.length > 0)) {
       if (groups.length > 0) {
         setSelectedId(groups[0].id);

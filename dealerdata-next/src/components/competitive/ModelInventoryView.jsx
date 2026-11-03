@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { base44 } from '@/api/base44Client';
 import { format } from 'date-fns';
@@ -52,24 +53,62 @@ function PriceDisplay({ numericValue, priceText }) {
 
 export default function ModelInventoryView({ store }) {
   const { isDealerLoading } = useDealer();
+  const searchParams = useSearchParams();
+
+  const paramMode = searchParams?.get('mode') || searchParams?.get('columns');
+  const paramView = searchParams?.get('view');
+  const paramDate = searchParams?.get('date');
+  const paramTrim = searchParams?.get('trim');
+  const paramYear = searchParams?.get('year');
+
   const storeId = store?.id || null;
   const storeName = store?.name || null;
   const dealershipKey = store?.dealership_key || null;
   const scraperStoreId = store?.scraper_store_id || null;
 
-  const [snapshotDate, setSnapshotDate] = useState(null);
-  const [priceMode, setPriceMode] = useState('inventory');
+  const initialPriceMode = (paramMode === 'all' || paramView === 'pricing') ? 'all' : 'inventory';
+  const [snapshotDate, setSnapshotDate] = useState(() => paramDate || null);
+  const [priceMode, setPriceMode] = useState(initialPriceMode);
 
   // Reset snapshot date whenever the store changes so we don't carry over another dealer's date
   useEffect(() => {
-    setSnapshotDate(null);
+    setSnapshotDate(paramDate || null);
   }, [dealershipKey]);
+
+  // Synchronize URL parameters if they change dynamically
+  useEffect(() => {
+    if (paramMode === 'all' || paramView === 'pricing') {
+      setPriceMode('all');
+    } else if (paramMode === 'inventory') {
+      setPriceMode('inventory');
+    }
+    if (paramDate) {
+      setSnapshotDate(paramDate);
+    }
+  }, [paramMode, paramView, paramDate]);
+
   const [modelFilter, setModelFilter] = useState('all');
   const [makeFilter, setMakeFilter] = useState('all');
   const [yearFilter, setYearFilter] = useState('all');
   const inventoryType = 'new';
-  const [showYear, setShowYear] = useState(true);
-  const [showTrim, setShowTrim] = useState(false);
+
+  const initialShowYear = paramYear === 'false' || paramYear === '0' ? false : true;
+  const initialShowTrim = paramTrim === 'true' || paramTrim === '1' ? true : false;
+  const [showYear, setShowYear] = useState(initialShowYear);
+  const [showTrim, setShowTrim] = useState(initialShowTrim);
+
+  useEffect(() => {
+    if (paramTrim === 'true' || paramTrim === '1') {
+      setShowTrim(true);
+    } else if (paramTrim === 'false' || paramTrim === '0') {
+      setShowTrim(false);
+    }
+    if (paramYear === 'true' || paramYear === '1') {
+      setShowYear(true);
+    } else if (paramYear === 'false' || paramYear === '0') {
+      setShowYear(false);
+    }
+  }, [paramTrim, paramYear]);
   const [sortBy, setSortBy] = useState('year');
   const [sortDir, setSortDir] = useState('desc');
 

@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useRef, Suspense } from 'react';
+import { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ModelInventoryView from '@/components/competitive/ModelInventoryView';
 import SoldVehiclesView from '@/components/competitive/SoldVehiclesView';
 import NewVehicleSpecialsView from '@/components/competitive/NewVehicleSpecialsView';
 import ServiceSpecialsView from '@/components/competitive/ServiceSpecialsView';
 import { useDealer } from '@/lib/DealerContext';
+import { findMatchingStore } from '@/lib/storeMatching';
 
 const VIEWS = [
   { key: 'inventory', label: 'Inventory & Pricing', desc: 'Units in stock and price ranges per model across all competitors' },
@@ -16,22 +17,66 @@ const VIEWS = [
 
 function CompetitorAnalysisContent() {
   const dealer = useDealer();
-  const { selectedType, activeStores } = dealer || {};
+  const { selectedType, activeStores, stores, groups, select, selectedId } = dealer || {};
   const isGroup = selectedType === 'group';
   const searchParams = useSearchParams();
+
+  // Normalize raw views
   const rawView = searchParams.get('view') || 'inventory';
-  const activeView = rawView === 'service_specials' ? 'inventory' : rawView;
-  const defaultStore = activeStores?.[0] || null;
+  const activeView = rawView === 'pricing'
+    ? 'inventory'
+    : rawView === 'specials'
+      ? 'new_specials'
+      : rawView === 'service_specials'
+        ? 'inventory'
+        : rawView;
+
+  const storeQuery = searchParams.get('store') ||
+    searchParams.get('store_id') ||
+    searchParams.get('store_name') ||
+    searchParams.get('dealer') ||
+    searchParams.get('dealer_id');
+
+  // Match store across all stores or current activeStores
+  const storeFromUrl = useMemo(() => {
+    if (!storeQuery) return null;
+    return findMatchingStore(stores, storeQuery) || findMatchingStore(activeStores, storeQuery);
+  }, [storeQuery, stores, activeStores]);
+
+  // Synchronize global dealer selection and local dropdown state if store comes from URL
+  useEffect(() => {
+    if (!storeFromUrl || !select) return;
+
+    if (storeFromUrl.group_id && groups && groups.some(g => g.id === storeFromUrl.group_id)) {
+      if (selectedId !== storeFromUrl.group_id) {
+        select('group', storeFromUrl.group_id);
+      }
+    } else {
+      if (selectedId !== storeFromUrl.id) {
+        select('store', storeFromUrl.id);
+      }
+    }
+    setSelectedStoreName(storeFromUrl.name);
+  }, [storeFromUrl, groups, selectedId, select]);
+
+  const defaultStore = storeFromUrl || activeStores?.[0] || null;
   const [selectedStoreName, setSelectedStoreName] = useState(defaultStore?.name || null);
 
-  // Reset dropdown when global dealer selection changes
-  const prevDefaultName = useRef(defaultStore?.name);
-  if (prevDefaultName.current !== defaultStore?.name) {
-    prevDefaultName.current = defaultStore?.name;
-    setSelectedStoreName(defaultStore?.name || null);
-  }
+  // Sync dropdown when storeFromUrl changes or when activeStores load
+  useEffect(() => {
+    if (storeFromUrl?.name) {
+      setSelectedStoreName(storeFromUrl.name);
+    } else if (activeStores && activeStores.length > 0) {
+      if (!activeStores.some(s => s.name === selectedStoreName)) {
+        setSelectedStoreName(activeStores[0].name);
+      }
+    }
+  }, [storeFromUrl?.name, activeStores]);
+
   const current = VIEWS.find(v => v.key === activeView) || VIEWS[0];
-  const selectedStore = activeStores?.find(s => s.name === selectedStoreName) || activeStores?.[0];
+  const selectedStore = (activeStores && activeStores.find(s => s.name === selectedStoreName)) ||
+    storeFromUrl ||
+    activeStores?.[0];
 
   return (
     <div className="p-6 space-y-5 max-w-6xl mx-auto">
@@ -44,7 +89,7 @@ function CompetitorAnalysisContent() {
           </p>
         </div>
 
-        {isGroup && activeStores && activeStores.length > 0 && (
+        {activeStores && activeStores.length > 0 && (
           <select
             value={selectedStoreName || activeStores[0]?.name || ''}
             onChange={e => setSelectedStoreName(e.target.value)}
