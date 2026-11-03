@@ -14,6 +14,7 @@ import { CovinaKiaScraper } from './covina_kia';
 import { PomonaKiaScraper } from './pomona_kia';
 import { KiaOfCerritosScraper } from './kia_of_cerritos';
 import { KiaOfDtlaScraper } from './kia_of_dtla';
+import { HarborChevyScraper } from './harbor_chevy';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -47,6 +48,14 @@ export class DealerRegistry {
     DealerRegistry.scrapers.set('kia_dtla', kod);
     DealerRegistry.scrapers.set('kia_of_dtla', kod);
     DealerRegistry.scrapers.set('kiaofdtla', kod);
+    const harbor = new HarborChevyScraper();
+    DealerRegistry.register(harbor);
+    DealerRegistry.scrapers.set('harbor_chevy', harbor);
+    DealerRegistry.scrapers.set('harborchevy', harbor);
+    DealerRegistry.scrapers.set('harbor_chevrolet', harbor);
+    DealerRegistry.scrapers.set('harborchevrolet', harbor);
+    DealerRegistry.scrapers.set('1792686342012_52is1', harbor);
+    DealerRegistry.scrapers.set('store_1792686342012_52is1', harbor);
   }
 
   static register(scraper: DealerSpecialsScraper): void {
