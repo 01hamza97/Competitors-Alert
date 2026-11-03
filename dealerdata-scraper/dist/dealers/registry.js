@@ -5,6 +5,7 @@ const covina_kia_1 = require("./covina_kia");
 const pomona_kia_1 = require("./pomona_kia");
 const kia_of_cerritos_1 = require("./kia_of_cerritos");
 const kia_of_dtla_1 = require("./kia_of_dtla");
+const world_of_ford_alexandria_1 = require("./world_of_ford_alexandria");
 class DealerInventoryRegistry {
     static scrapers = new Map();
     static {
@@ -34,6 +35,13 @@ class DealerInventoryRegistry {
         DealerInventoryRegistry.scrapers.set('kia_dtla', kiaDtla);
         DealerInventoryRegistry.scrapers.set('kiaofdtla', kiaDtla);
         DealerInventoryRegistry.scrapers.set('kiaofdtla.com', kiaDtla);
+        // 5. World Of Ford Alexandria
+        const worldOfFordAlexandria = new world_of_ford_alexandria_1.WorldOfFordAlexandriaInventoryScraper();
+        DealerInventoryRegistry.register(worldOfFordAlexandria);
+        DealerInventoryRegistry.scrapers.set('world_of_ford_alexandria', worldOfFordAlexandria);
+        DealerInventoryRegistry.scrapers.set('worldoffordalexandria', worldOfFordAlexandria);
+        DealerInventoryRegistry.scrapers.set('worldoffordalexandria.com', worldOfFordAlexandria);
+        DealerInventoryRegistry.scrapers.set('ourismanfordfd', worldOfFordAlexandria);
     }
     static register(scraper) {
         const cleanId = scraper.id.toLowerCase().replace(/^store_/, '');

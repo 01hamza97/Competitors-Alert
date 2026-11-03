@@ -3,6 +3,7 @@ import { CovinaKiaInventoryScraper } from './covina_kia';
 import { PomonaKiaInventoryScraper } from './pomona_kia';
 import { KiaOfCerritosInventoryScraper } from './kia_of_cerritos';
 import { KiaOfDtlaInventoryScraper } from './kia_of_dtla';
+import { WorldOfFordAlexandriaInventoryScraper } from './world_of_ford_alexandria';
 
 export class DealerInventoryRegistry {
   private static scrapers: Map<string, DealerInventoryScraper> = new Map();
@@ -37,6 +38,14 @@ export class DealerInventoryRegistry {
     DealerInventoryRegistry.scrapers.set('kia_dtla', kiaDtla);
     DealerInventoryRegistry.scrapers.set('kiaofdtla', kiaDtla);
     DealerInventoryRegistry.scrapers.set('kiaofdtla.com', kiaDtla);
+
+    // 5. World Of Ford Alexandria
+    const worldOfFordAlexandria = new WorldOfFordAlexandriaInventoryScraper();
+    DealerInventoryRegistry.register(worldOfFordAlexandria);
+    DealerInventoryRegistry.scrapers.set('world_of_ford_alexandria', worldOfFordAlexandria);
+    DealerInventoryRegistry.scrapers.set('worldoffordalexandria', worldOfFordAlexandria);
+    DealerInventoryRegistry.scrapers.set('worldoffordalexandria.com', worldOfFordAlexandria);
+    DealerInventoryRegistry.scrapers.set('ourismanfordfd', worldOfFordAlexandria);
   }
 
   static register(scraper: DealerInventoryScraper): void {
