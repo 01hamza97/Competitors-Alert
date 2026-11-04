@@ -330,25 +330,25 @@ export async function buildCompetitorSnapshotHtml({
   const unsubUrl = unsubscribeUrl || `${dashboardUrl}/settings`;
   const storeParam = encodeURIComponent(primaryName);
 
-  // Top models sorted by primary dealer inventory volume, then total volume
-  const topModels = Object.keys(invByModel).sort((a, b) => {
+  // All inventory models sorted by primary dealer inventory volume, then total volume
+  const allInvModels = Object.keys(invByModel).sort((a, b) => {
     const primA = invByModel[a]?.[primaryKey]?.count || 0;
     const primB = invByModel[b]?.[primaryKey]?.count || 0;
     if (primB !== primA) return primB - primA;
     const totalA = dealers.reduce((s, d) => s + (invByModel[a]?.[d.key]?.count || 0), 0);
     const totalB = dealers.reduce((s, d) => s + (invByModel[b]?.[d.key]?.count || 0), 0);
     return totalB - totalA;
-  }).slice(0, 8);
+  });
 
-  // Top sold models sorted by primary dealer sold volume, then total sold
-  const topSoldModels = Object.keys(soldByModel).sort((a, b) => {
+  // All sold models sorted by primary dealer sold volume, then total sold
+  const allSoldModels = Object.keys(soldByModel).sort((a, b) => {
     const primA = soldByModel[a]?.[primaryKey] || 0;
     const primB = soldByModel[b]?.[primaryKey] || 0;
     if (primB !== primA) return primB - primA;
     const totalA = dealers.reduce((s, d) => s + (soldByModel[a]?.[d.key] || 0), 0);
     const totalB = dealers.reduce((s, d) => s + (soldByModel[b]?.[d.key] || 0), 0);
     return totalB - totalA;
-  }).slice(0, 8);
+  });
 
   // 8. Assemble Full Responsive HTML
   return `<!doctype html>
@@ -465,7 +465,7 @@ export async function buildCompetitorSnapshotHtml({
                     <td>Total estimated</td>
                     ${dealers.map(d => `<td>${soldTotals[d.key] || 0}</td>`).join('\n                    ')}
                   </tr>
-                  ${topSoldModels.map(model => `
+                  ${allSoldModels.map(model => `
                   <tr>
                     <td>${escapeHtml(model)}</td>
                     ${dealers.map(d => `<td>${soldByModel[model]?.[d.key] || 0}</td>`).join('\n                    ')}
@@ -512,7 +512,7 @@ export async function buildCompetitorSnapshotHtml({
                       return `<td>${cur} ${diffBadge}</td>`;
                     }).join('\n                    ')}
                   </tr>
-                  ${topModels.map(model => `
+                  ${allInvModels.map(model => `
                   <tr>
                     <td>${escapeHtml(model)}</td>
                     ${dealers.map(d => {
@@ -555,7 +555,7 @@ export async function buildCompetitorSnapshotHtml({
                   </tr>
                 </thead>
                 <tbody>
-                  ${topModels.map(model => `
+                  ${allInvModels.map(model => `
                   <tr>
                     <td>${escapeHtml(model)}</td>
                     ${dealers.map(d => {
