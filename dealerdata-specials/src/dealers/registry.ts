@@ -18,6 +18,7 @@ import { HarborChevyScraper } from './harbor_chevy';
 import { GeorgeChevroletScraper } from './george_chevrolet';
 import { PenskeChevroletScraper } from './penske_chevrolet';
 import { PremierChevroletScraper } from './premier_chevrolet';
+import { ChevyOfCarsonScraper } from './chevy_of_carson';
 
 export class DealerRegistry {
   private static scrapers: Map<string, DealerSpecialsScraper> = new Map();
@@ -86,6 +87,15 @@ export class DealerRegistry {
     DealerRegistry.scrapers.set('premierchevybp.com', premier);
     DealerRegistry.scrapers.set('storecompetitor_1792686616118_qrupm', premier);
     DealerRegistry.scrapers.set('1792686616118_qrupm', premier);
+    const carson = new ChevyOfCarsonScraper();
+    DealerRegistry.register(carson);
+    DealerRegistry.scrapers.set('chevy_of_carson', carson);
+    DealerRegistry.scrapers.set('chevyofcarson', carson);
+    DealerRegistry.scrapers.set('carson_chevy', carson);
+    DealerRegistry.scrapers.set('carsonchevy', carson);
+    DealerRegistry.scrapers.set('chevyofcarson.com', carson);
+    DealerRegistry.scrapers.set('storecompetitor_1792686701120_2j3b6', carson);
+    DealerRegistry.scrapers.set('1792686701120_2j3b6', carson);
   }
 
   static register(scraper: DealerSpecialsScraper): void {
