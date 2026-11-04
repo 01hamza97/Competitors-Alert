@@ -987,7 +987,11 @@
         "dealer_name": "George Chevrolet",
         "competitor_id": "george_chevorlet",
         "dealer_type": "competitor",
-        "platform": "dealercom",
+        "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/24383/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_sort_field": "stock",
+        "api_sort_order": "asc",
         "new_inventory_url": "https://www.georgechevy.com/new-vehicles/",
         "active": true
       },
@@ -1005,6 +1009,10 @@
         "competitor_id": "premier_chevrolet",
         "dealer_type": "competitor",
         "platform": "dealerinspire",
+        "api_url": "https://websites-search.api.carscommerce.inc/api/v1/listings/2459946/search",
+        "api_key": "OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl",
+        "api_sort_field": "stock",
+        "api_sort_order": "asc",
         "new_inventory_url": "https://www.premierchevybp.com/new-vehicles/",
         "active": true
       },
