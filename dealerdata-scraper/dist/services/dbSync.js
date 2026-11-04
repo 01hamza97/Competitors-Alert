@@ -82,7 +82,8 @@ class DatabaseSync {
                                 listPrice: row.list_price
                             });
                         }
-                        else if (row.dealer_id !== cleanDealerId || row.id !== `inv_${cleanDealerId}_${rowVin}`) {
+                        else if (row.dealer_id !== cleanDealerId ||
+                            (row.id !== `inv_${cleanDealerId}_${snapshotDate}_${rowVin}` && row.id !== `inv_${cleanDealerId}_${rowVin}`)) {
                             // Legacy/cross-prefix duplicate row (e.g., comp_pomona_kia vs pomona_kia)
                             duplicateRowIds.push(row.id);
                         }
@@ -137,7 +138,7 @@ class DatabaseSync {
             // 3. Upsert active listings
             for (const item of activeListings) {
                 const cleanVin = item.vin.trim();
-                const id = `inv_${cleanDealerId}_${cleanVin}`;
+                const id = `inv_${cleanDealerId}_${snapshotDate}_${cleanVin}`;
                 const domain = (0, domain_1.normalizeDomain)(item.vehicleUrl || '');
                 const query = `
           INSERT INTO competitor_vehicle_inventory (
@@ -147,7 +148,6 @@ class DatabaseSync {
             vehicle_url, image_url, domain, created_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
-            snapshot_date = VALUES(snapshot_date),
             year = VALUES(year),
             make = VALUES(make),
             model = VALUES(model),

@@ -1,4 +1,5 @@
 import { prisma } from './prisma.js';
+import { normalizeVehicle } from './vehicleNormalization.js';
 import {
   handleCompetitorSoldVehicles,
   handleCompetitorInventory,
@@ -113,91 +114,119 @@ export async function buildCompetitorSnapshotHtml({
     soldTotals[k] = (soldTotals[k] || 0) + 1;
   });
 
-  // 4. Fetch Inventory Data (Current & Prior Snapshot for deltas)
-  let invResult = null;
-  try {
-    invResult = await handleCompetitorInventory({
-      dealer_id: primaryKey,
-      snapshot_date: activeDate,
-    });
-  } catch (err) {
-    console.warn('[EmailBuilder] Error fetching current inventory:', err.message);
-  }
-
-  const currentInvRows = invResult?.matrix || invResult?.data || invResult?.rows || [];
-  const availableDates = invResult?.available_dates || [];
-  const priorDate = availableDates.find(d => d < activeDate) || null;
-
-  let priorInvRows = [];
-  if (priorDate) {
-    try {
-      const priorResult = await handleCompetitorInventory({
-        dealer_id: primaryKey,
-        snapshot_date: priorDate,
-      });
-      priorInvRows = priorResult?.matrix || priorResult?.data || priorResult?.rows || [];
-    } catch (err) {
-      console.warn('[EmailBuilder] Error fetching prior inventory:', err.message);
-    }
-  }
-
-  // Aggregate current inventory & prices
+  // 4. Fetch Inventory Data (Current & Prior Snapshot per dealer for deltas)
   const invByModel = {}; // { [model]: { [dealerKey]: { count: 0, lowPrice: null } } }
   const invTotals = {};  // { [dealerKey]: 0 }
-  dealers.forEach(d => { invTotals[d.key] = 0; });
-
-  currentInvRows.forEach(r => {
-    const model = (r.model || r.raw_title || 'Other').trim();
-    if (!invByModel[model]) invByModel[model] = {};
-
-    const matchedDealer = dealers.find(d =>
-      d.name === r.competitor_id ||
-      d.key === r.dealer_id ||
-      d.key === r.competitor_id
-    ) || dealers[0];
-
-    const k = matchedDealer.key;
-    const invCount = r.inventory_count != null && r.inventory_count > 0 ? r.inventory_count : 1;
-    const low = r.low_price != null && Number(r.low_price) > 0 ? Number(r.low_price) : null;
-
-    if (!invByModel[model][k]) {
-      invByModel[model][k] = { count: 0, lowPrice: null };
-    }
-    invByModel[model][k].count += invCount;
-    if (low != null && (invByModel[model][k].lowPrice == null || low < invByModel[model][k].lowPrice)) {
-      invByModel[model][k].lowPrice = low;
-    }
-    invTotals[k] = (invTotals[k] || 0) + invCount;
-  });
-
-  // Aggregate prior inventory for deltas
   const priorInvByModel = {};
   const priorInvTotals = {};
-  dealers.forEach(d => { priorInvTotals[d.key] = 0; });
-
-  priorInvRows.forEach(r => {
-    const model = (r.model || r.raw_title || 'Other').trim();
-    if (!priorInvByModel[model]) priorInvByModel[model] = {};
-
-    const matchedDealer = dealers.find(d =>
-      d.name === r.competitor_id ||
-      d.key === r.dealer_id ||
-      d.key === r.competitor_id
-    ) || dealers[0];
-
-    const k = matchedDealer.key;
-    const invCount = r.inventory_count != null && r.inventory_count > 0 ? r.inventory_count : 1;
-    const low = r.low_price != null && Number(r.low_price) > 0 ? Number(r.low_price) : null;
-
-    if (!priorInvByModel[model][k]) {
-      priorInvByModel[model][k] = { count: 0, lowPrice: null };
-    }
-    priorInvByModel[model][k].count += invCount;
-    if (low != null && (priorInvByModel[model][k].lowPrice == null || low < priorInvByModel[model][k].lowPrice)) {
-      priorInvByModel[model][k].lowPrice = low;
-    }
-    priorInvTotals[k] = (priorInvTotals[k] || 0) + invCount;
+  const hasPriorSnapshot = {}; // { [dealerKey]: boolean }
+  dealers.forEach(d => {
+    invTotals[d.key] = 0;
+    priorInvTotals[d.key] = 0;
+    hasPriorSnapshot[d.key] = false;
   });
+
+  try {
+    for (const d of dealers) {
+      const cleanKey = d.key.replace(/^store_/, '').replace(/^comp_/, '');
+      const dealerVariantIds = [...new Set([cleanKey, `store_${cleanKey}`, `comp_${cleanKey}`, d.key])].filter(Boolean);
+
+      // Find current snapshot date for this dealer <= activeDate
+      const currentSnap = await prisma.competitorVehicleInventory.findFirst({
+        where: {
+          dealerId: { in: dealerVariantIds },
+          snapshotDate: { lte: activeDate },
+        },
+        orderBy: { snapshotDate: 'desc' },
+        select: { snapshotDate: true },
+      });
+
+      if (!currentSnap) continue;
+      const currentSnapDate = currentSnap.snapshotDate;
+
+      // Fetch current snapshot rows deduplicated by VIN
+      const currentRows = await prisma.competitorVehicleInventory.findMany({
+        where: {
+          dealerId: { in: dealerVariantIds },
+          snapshotDate: currentSnapDate,
+        },
+        take: 5000,
+      });
+
+      const seenCurrentVins = new Set();
+      for (const r of currentRows) {
+        const vin = (r.vin || '').trim().toUpperCase();
+        if (vin && seenCurrentVins.has(vin)) continue;
+        if (vin) seenCurrentVins.add(vin);
+
+        const norm = normalizeVehicle({
+          make: r.make,
+          model: r.model,
+          trim: r.trim,
+          vehicleUrl: r.vehicleUrl || r.vehicle_url,
+        });
+        const model = (norm.model || r.model || 'Other').trim();
+        if (!invByModel[model]) invByModel[model] = {};
+        if (!invByModel[model][d.key]) invByModel[model][d.key] = { count: 0, lowPrice: null };
+
+        invByModel[model][d.key].count += 1;
+        const low = r.listPrice != null && Number(r.listPrice) > 0 ? Number(r.listPrice) : null;
+        if (low != null && (invByModel[model][d.key].lowPrice == null || low < invByModel[model][d.key].lowPrice)) {
+          invByModel[model][d.key].lowPrice = low;
+        }
+        invTotals[d.key] = (invTotals[d.key] || 0) + 1;
+      }
+
+      // Find prior snapshot date strictly before currentSnapDate
+      const priorSnap = await prisma.competitorVehicleInventory.findFirst({
+        where: {
+          dealerId: { in: dealerVariantIds },
+          snapshotDate: { lt: currentSnapDate },
+        },
+        orderBy: { snapshotDate: 'desc' },
+        select: { snapshotDate: true },
+      });
+
+      if (priorSnap?.snapshotDate) {
+        hasPriorSnapshot[d.key] = true;
+        const priorSnapDate = priorSnap.snapshotDate;
+
+        const priorRows = await prisma.competitorVehicleInventory.findMany({
+          where: {
+            dealerId: { in: dealerVariantIds },
+            snapshotDate: priorSnapDate,
+          },
+          take: 5000,
+        });
+
+        const seenPriorVins = new Set();
+        for (const r of priorRows) {
+          const vin = (r.vin || '').trim().toUpperCase();
+          if (vin && seenPriorVins.has(vin)) continue;
+          if (vin) seenPriorVins.add(vin);
+
+          const norm = normalizeVehicle({
+            make: r.make,
+            model: r.model,
+            trim: r.trim,
+            vehicleUrl: r.vehicleUrl || r.vehicle_url,
+          });
+          const model = (norm.model || r.model || 'Other').trim();
+          if (!priorInvByModel[model]) priorInvByModel[model] = {};
+          if (!priorInvByModel[model][d.key]) priorInvByModel[model][d.key] = { count: 0, lowPrice: null };
+
+          priorInvByModel[model][d.key].count += 1;
+          const low = r.listPrice != null && Number(r.listPrice) > 0 ? Number(r.listPrice) : null;
+          if (low != null && (priorInvByModel[model][d.key].lowPrice == null || low < priorInvByModel[model][d.key].lowPrice)) {
+            priorInvByModel[model][d.key].lowPrice = low;
+          }
+          priorInvTotals[d.key] = (priorInvTotals[d.key] || 0) + 1;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[EmailBuilder] Error fetching inventory data:', err.message);
+  }
 
   // 5. Fetch Specials Data
   let specialsRows = [];
@@ -248,11 +277,18 @@ export async function buildCompetitorSnapshotHtml({
 
   // Bullet 2: Inventory shift
   const sortedInv = [...dealers].sort((a, b) => (invTotals[b.key] || 0) - (invTotals[a.key] || 0));
-  const primaryDelta = (invTotals[primaryKey] || 0) - (priorInvTotals[primaryKey] || 0);
-  const deltaStr = primaryDelta > 0 ? `+${primaryDelta}` : `${primaryDelta}`;
-  summaryBullets.push(
-    `<strong>${escapeHtml(primaryName)}</strong> currently has <strong>${invTotals[primaryKey] || 0}</strong> new vehicles in stock (${deltaStr} vs prior snapshot).`
-  );
+  const hasPrimaryPrior = hasPriorSnapshot[primaryKey];
+  if (hasPrimaryPrior) {
+    const primaryDelta = (invTotals[primaryKey] || 0) - (priorInvTotals[primaryKey] || 0);
+    const deltaStr = primaryDelta > 0 ? `+${primaryDelta}` : `${primaryDelta}`;
+    summaryBullets.push(
+      `<strong>${escapeHtml(primaryName)}</strong> currently has <strong>${invTotals[primaryKey] || 0}</strong> new vehicles in stock (${deltaStr} vs prior snapshot).`
+    );
+  } else {
+    summaryBullets.push(
+      `<strong>${escapeHtml(primaryName)}</strong> currently has <strong>${invTotals[primaryKey] || 0}</strong> new vehicles in stock.`
+    );
+  }
 
   // Bullet 3: Price advantage
   let bestDealText = null;
@@ -293,6 +329,26 @@ export async function buildCompetitorSnapshotHtml({
 
   const unsubUrl = unsubscribeUrl || `${dashboardUrl}/settings`;
   const storeParam = encodeURIComponent(primaryName);
+
+  // Top models sorted by primary dealer inventory volume, then total volume
+  const topModels = Object.keys(invByModel).sort((a, b) => {
+    const primA = invByModel[a]?.[primaryKey]?.count || 0;
+    const primB = invByModel[b]?.[primaryKey]?.count || 0;
+    if (primB !== primA) return primB - primA;
+    const totalA = dealers.reduce((s, d) => s + (invByModel[a]?.[d.key]?.count || 0), 0);
+    const totalB = dealers.reduce((s, d) => s + (invByModel[b]?.[d.key]?.count || 0), 0);
+    return totalB - totalA;
+  }).slice(0, 8);
+
+  // Top sold models sorted by primary dealer sold volume, then total sold
+  const topSoldModels = Object.keys(soldByModel).sort((a, b) => {
+    const primA = soldByModel[a]?.[primaryKey] || 0;
+    const primB = soldByModel[b]?.[primaryKey] || 0;
+    if (primB !== primA) return primB - primA;
+    const totalA = dealers.reduce((s, d) => s + (soldByModel[a]?.[d.key] || 0), 0);
+    const totalB = dealers.reduce((s, d) => s + (soldByModel[b]?.[d.key] || 0), 0);
+    return totalB - totalA;
+  }).slice(0, 8);
 
   // 8. Assemble Full Responsive HTML
   return `<!doctype html>
@@ -409,10 +465,10 @@ export async function buildCompetitorSnapshotHtml({
                     <td>Total estimated</td>
                     ${dealers.map(d => `<td>${soldTotals[d.key] || 0}</td>`).join('\n                    ')}
                   </tr>
-                  ${Object.keys(soldByModel).slice(0, 8).map(model => `
+                  ${topSoldModels.map(model => `
                   <tr>
                     <td>${escapeHtml(model)}</td>
-                    ${dealers.map(d => `<td>${soldByModel[model][d.key] || 0}</td>`).join('\n                    ')}
+                    ${dealers.map(d => `<td>${soldByModel[model]?.[d.key] || 0}</td>`).join('\n                    ')}
                   </tr>`).join('')}
                 </tbody>
               </table>
@@ -442,24 +498,36 @@ export async function buildCompetitorSnapshotHtml({
                     <td>Total inventory</td>
                     ${dealers.map(d => {
                       const cur = invTotals[d.key] || 0;
-                      const prior = priorInvTotals[d.key] || 0;
-                      const diff = cur - prior;
-                      const diffBadge = diff > 0
-                        ? `<span class="delta positive">(+${diff})</span>`
-                        : (diff < 0 ? `<span class="delta negative">(${diff})</span>` : '');
+                      const hasPrior = hasPriorSnapshot[d.key];
+                      let diffBadge = '';
+                      if (hasPrior) {
+                        const prior = priorInvTotals[d.key] || 0;
+                        const diff = cur - prior;
+                        if (diff > 0) {
+                          diffBadge = `<span class="delta positive">(+${diff})</span>`;
+                        } else if (diff < 0) {
+                          diffBadge = `<span class="delta negative">(${diff})</span>`;
+                        }
+                      }
                       return `<td>${cur} ${diffBadge}</td>`;
                     }).join('\n                    ')}
                   </tr>
-                  ${Object.keys(invByModel).slice(0, 8).map(model => `
+                  ${topModels.map(model => `
                   <tr>
                     <td>${escapeHtml(model)}</td>
                     ${dealers.map(d => {
-                      const cur = invByModel[model][d.key]?.count || 0;
-                      const prior = priorInvByModel[model]?.[d.key]?.count || 0;
-                      const diff = cur - prior;
-                      const diffBadge = diff > 0
-                        ? `<span class="delta positive">(+${diff})</span>`
-                        : (diff < 0 ? `<span class="delta negative">(${diff})</span>` : '');
+                      const cur = invByModel[model]?.[d.key]?.count || 0;
+                      const hasPrior = hasPriorSnapshot[d.key];
+                      let diffBadge = '';
+                      if (hasPrior && cur > 0) {
+                        const prior = priorInvByModel[model]?.[d.key]?.count || 0;
+                        const diff = cur - prior;
+                        if (diff > 0) {
+                          diffBadge = `<span class="delta positive">(+${diff})</span>`;
+                        } else if (diff < 0) {
+                          diffBadge = `<span class="delta negative">(${diff})</span>`;
+                        }
+                      }
                       return `<td>${cur > 0 ? cur : '—'} ${cur > 0 ? diffBadge : ''}</td>`;
                     }).join('\n                    ')}
                   </tr>`).join('')}
@@ -487,19 +555,24 @@ export async function buildCompetitorSnapshotHtml({
                   </tr>
                 </thead>
                 <tbody>
-                  ${Object.keys(invByModel).slice(0, 8).map(model => `
+                  ${topModels.map(model => `
                   <tr>
                     <td>${escapeHtml(model)}</td>
                     ${dealers.map(d => {
-                      const curPrice = invByModel[model][d.key]?.lowPrice;
-                      const priorPrice = priorInvByModel[model]?.[d.key]?.lowPrice;
+                      const curPrice = invByModel[model]?.[d.key]?.lowPrice;
+                      const hasPrior = hasPriorSnapshot[d.key];
+                      const priorPrice = hasPrior ? priorInvByModel[model]?.[d.key]?.lowPrice : null;
                       if (!curPrice) return `<td><span class="neutral">—</span></td>`;
-                      const priceDiff = (priorPrice && curPrice) ? curPrice - priorPrice : 0;
-                      let changeHtml = '<span class="price-change neutral">No change</span>';
-                      if (priceDiff < 0) {
-                        changeHtml = `<span class="price-change positive">↓ $${Math.abs(priceDiff).toLocaleString()}</span>`;
-                      } else if (priceDiff > 0) {
-                        changeHtml = `<span class="price-change negative">↑ $${priceDiff.toLocaleString()}</span>`;
+                      let changeHtml = '<span class="price-change neutral">—</span>';
+                      if (hasPrior && priorPrice != null) {
+                        const priceDiff = curPrice - priorPrice;
+                        if (priceDiff < 0) {
+                          changeHtml = `<span class="price-change positive">↓ $${Math.abs(priceDiff).toLocaleString()}</span>`;
+                        } else if (priceDiff > 0) {
+                          changeHtml = `<span class="price-change negative">↑ $${priceDiff.toLocaleString()}</span>`;
+                        } else {
+                          changeHtml = '<span class="price-change neutral">No change</span>';
+                        }
                       }
                       return `<td><span class="price">$${curPrice.toLocaleString()}</span>${changeHtml}</td>`;
                     }).join('\n                    ')}

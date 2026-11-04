@@ -315,7 +315,7 @@ export async function launchScraperJob({
                 inventory_type, list_price, msrp, dealer_discount, mileage, vehicle_url, image_url, domain, created_at
               )
               SELECT 
-                CONCAT('inv_', ?, '_', vin), ?, snapshot_date, vin, stock_number, year, make, model, trim,
+                CONCAT('inv_', ?, '_', snapshot_date, '_', vin), ?, snapshot_date, vin, stock_number, year, make, model, trim,
                 inventory_type, list_price, msrp, dealer_discount, mileage, vehicle_url, image_url, domain, NOW()
               FROM competitor_vehicle_inventory
               WHERE domain = ? AND snapshot_date = (SELECT MAX(snapshot_date) FROM competitor_vehicle_inventory WHERE domain = ?)`,
