@@ -129,24 +129,40 @@ class PlaywrightCrawler {
                         console.log(`[Playwright] Intercepted CarsCommerce API! Found ${json.data.listings.length} listings (total stock: ${json.data.total_vehicle_count}).`);
                         const apiItems = listingExtractor_1.ListingExtractor.extractFromCarsCommerce(json.data.listings, options.startUrl, options.dealerId, options.dealerName);
                         interceptedApiListings.push(...apiItems);
-                        // Auto-fetch remaining pages directly via CarsCommerce API in fast-lane
+                        // Auto-fetch ALL pages directly via CarsCommerce API in fast-lane using consistent perPage=100
                         if (json.data.total_vehicle_count > json.data.listings.length && !interceptedApiDone) {
                             interceptedApiDone = true;
                             try {
                                 const req = res.request();
                                 const headers = req.headers();
                                 const apiKey = headers['x-api-key'] || 'OQa8l7SzMctJyr5bhSG9jYvlGnZUQfgl';
+                                // Parse original request body to preserve exact filters and facets
+                                let origPostData = {};
+                                try {
+                                    const rawPost = req.postData();
+                                    if (rawPost)
+                                        origPostData = JSON.parse(rawPost);
+                                }
+                                catch { }
+                                const facetFilters = origPostData.facetFilters || { type: ['New', 'Demo'] };
+                                const filters = origPostData.filters || { status: ['publish', 'modified', 'pend-sale'] };
                                 const totalPages = Math.ceil(json.data.total_vehicle_count / 100);
-                                for (let p = 2; p <= Math.min(totalPages, 50); p++) {
+                                // Drain partial page 1 items so we can fetch all records cleanly with perPage=100 without skipping offset 20..99
+                                interceptedApiListings.length = 0;
+                                for (let p = 1; p <= Math.min(totalPages, 50); p++) {
                                     const moreRes = await axios_1.default.post(u, {
                                         page: p,
                                         perPage: 100,
                                         sort: [{ field: 'stock', order: 'asc' }],
-                                        facetFilters: { type_slug: ['New'] },
-                                        requestedFields: ['vin', 'stock', 'type', 'year', 'make', 'model', 'trim', 'vdp_url', 'pricing', 'extra_fields']
+                                        filters,
+                                        facetFilters,
+                                        requestedFields: [
+                                            'vin', 'stock', 'type', 'year', 'make', 'model', 'trim',
+                                            'vdp_url', 'pricing', 'extra_fields', 'mileage', 'media'
+                                        ]
                                     }, {
                                         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
-                                        timeout: 10000,
+                                        timeout: 15000,
                                         ...(0, proxyHelper_1.getAxiosProxyConfig)(options.proxyUrl)
                                     });
                                     const moreListings = moreRes.data?.data?.listings || [];

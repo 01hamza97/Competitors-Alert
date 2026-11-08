@@ -6,6 +6,8 @@ const pomona_kia_1 = require("./pomona_kia");
 const kia_of_cerritos_1 = require("./kia_of_cerritos");
 const kia_of_dtla_1 = require("./kia_of_dtla");
 const world_of_ford_alexandria_1 = require("./world_of_ford_alexandria");
+const premier_chevrolet_1 = require("./premier_chevrolet");
+const george_chevrolet_1 = require("./george_chevrolet");
 class DealerInventoryRegistry {
     static scrapers = new Map();
     static {
@@ -42,6 +44,19 @@ class DealerInventoryRegistry {
         DealerInventoryRegistry.scrapers.set('worldoffordalexandria', worldOfFordAlexandria);
         DealerInventoryRegistry.scrapers.set('worldoffordalexandria.com', worldOfFordAlexandria);
         DealerInventoryRegistry.scrapers.set('ourismanfordfd', worldOfFordAlexandria);
+        // 6. Premier Chevrolet
+        const premierChevy = new premier_chevrolet_1.PremierChevroletInventoryScraper();
+        DealerInventoryRegistry.register(premierChevy);
+        DealerInventoryRegistry.scrapers.set('premier_chevrolet', premierChevy);
+        DealerInventoryRegistry.scrapers.set('premierchevy', premierChevy);
+        DealerInventoryRegistry.scrapers.set('premierchevybp.com', premierChevy);
+        // 7. George Chevrolet
+        const georgeChevy = new george_chevrolet_1.GeorgeChevroletInventoryScraper();
+        DealerInventoryRegistry.register(georgeChevy);
+        DealerInventoryRegistry.scrapers.set('george_chevorlet', georgeChevy);
+        DealerInventoryRegistry.scrapers.set('george_chevrolet', georgeChevy);
+        DealerInventoryRegistry.scrapers.set('georgechevy', georgeChevy);
+        DealerInventoryRegistry.scrapers.set('georgechevy.com', georgeChevy);
     }
     static register(scraper) {
         const cleanId = scraper.id.toLowerCase().replace(/^store_/, '');

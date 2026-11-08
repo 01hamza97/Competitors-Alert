@@ -148,6 +148,7 @@ class DatabaseSync {
             vehicle_url, image_url, domain, created_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE
+            snapshot_date = VALUES(snapshot_date),
             year = VALUES(year),
             make = VALUES(make),
             model = VALUES(model),
