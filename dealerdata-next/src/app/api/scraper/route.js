@@ -300,6 +300,14 @@ export async function POST(request) {
                 console.error('[API /api/scraper] Competitor scrape error:', err.message);
               }
             }
+
+            // Auto Email: Dispatch daily snapshot email to store managers + admin monitors
+            try {
+              const { dispatchStoreSnapshotEmail } = await import('@/lib/autoEmailDispatcher');
+              await dispatchStoreSnapshotEmail({ storeId });
+            } catch (emailErr) {
+              console.error('[API /api/scraper] Auto email trigger error:', emailErr.message);
+            }
           })();
         }
       }

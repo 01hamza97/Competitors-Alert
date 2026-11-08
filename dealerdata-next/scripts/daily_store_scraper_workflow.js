@@ -14,6 +14,7 @@ const prisma = new PrismaClient();
 
 // Import launchScraperJob and log helpers
 const { launchScraperJob } = await import('../src/lib/scraperRunner.js');
+const { dispatchStoreSnapshotEmail } = await import('../src/lib/autoEmailDispatcher.js');
 
 // Helper to parse CLI arguments
 function getArg(flag) {
@@ -363,6 +364,17 @@ async function main() {
         isCompetitor: true,
       });
       overallResults.push(compResult);
+    }
+
+    // C. Auto Email: Dispatch daily snapshot email to store managers + admin monitors
+    console.log(`\n📬 [Workflow Auto Email] Triggering Daily Snapshot Email for "${store.name}"...`);
+    try {
+      await dispatchStoreSnapshotEmail({
+        storeId: store.id,
+        snapshotDate: localDate,
+      });
+    } catch (emailErr) {
+      console.error(`[Workflow Auto Email] Failed to send email for "${store.name}":`, emailErr.message);
     }
   }
 
