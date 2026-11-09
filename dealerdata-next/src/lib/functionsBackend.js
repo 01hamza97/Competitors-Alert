@@ -613,9 +613,11 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
         })
       ).map((r) => r.snapshotDate);
 
+      const uniqueTargets = [...new Set(targetIds.map(id => id.replace(/^store_/, '').replace(/^comp_/, '')))];
+
       const activeDate = snapshot_date || allDates[0] || null;
       if (!activeDate) {
-        return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {} };
+        return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {}, competitor_ids: uniqueTargets };
       }
 
       where.snapshotDate = activeDate;
@@ -629,7 +631,6 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
       );
 
       const returnedDealers = new Set(rows.map(r => (r.dealerId || '').replace(/^store_/, '').replace(/^comp_/, '')));
-      const uniqueTargets = [...new Set(targetIds.map(id => id.replace(/^store_/, '').replace(/^comp_/, '')))];
 
       for (const tKey of uniqueTargets) {
         const hasRows = returnedDealers.has(tKey);
@@ -746,6 +747,7 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
         available_dates: allDates,
         snapshot_date: activeDate,
         competitor_id_to_name: nameMap,
+        competitor_ids: uniqueTargets,
       };
     } catch (e) {
       console.warn('Prisma handleCompetitorInventory fallback:', e.message);
@@ -753,7 +755,7 @@ export async function handleCompetitorInventory({ dealer_id, snapshot_date }) {
   }
 
   const sbUrl = getSbUrl();
-  if (!sbUrl) return { matrix: [], available_dates: [], snapshot_date: null };
+  if (!sbUrl) return { matrix: [], available_dates: [], snapshot_date: null, competitor_ids: [] };
 
   try {
     const datesRes = await fetch(
@@ -818,9 +820,11 @@ export async function handleCompetitorSoldVehicles({ dealer_id, snapshot_date })
         })
       ).map((r) => r.snapshotDate);
 
+      const uniqueTargets = [...new Set(targetIds.map(id => id.replace(/^store_/, '').replace(/^comp_/, '')))];
+
       const activeDate = snapshot_date || allDates[0] || null;
       if (!activeDate) {
-        return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {} };
+        return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {}, competitor_ids: uniqueTargets };
       }
 
       // Build name mapping for stores and competitors
@@ -843,7 +847,6 @@ export async function handleCompetitorSoldVehicles({ dealer_id, snapshot_date })
         nameMap[`comp_${c.competitorKey}`] = c.competitorName;
       }
 
-      const uniqueTargets = [...new Set(targetIds.map(id => id.replace(/^store_/, '').replace(/^comp_/, '')))];
       let allSoldRows = [];
       const perDealerPriorDates = {};
 
@@ -968,13 +971,14 @@ export async function handleCompetitorSoldVehicles({ dealer_id, snapshot_date })
         snapshot_date: activeDate,
         per_dealer_prior_dates: perDealerPriorDates,
         competitor_id_to_name: nameMap,
+        competitor_ids: uniqueTargets,
       };
     } catch (e) {
       console.warn('Prisma handleCompetitorSoldVehicles fallback:', e.message);
     }
   }
 
-  return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {} };
+  return { data: [], matrix: [], available_dates: [], snapshot_date: null, competitor_id_to_name: {}, competitor_ids: [] };
 }
 
 // ── Competitor Vehicle Specials ───────────────────────────────────────────────
@@ -2416,7 +2420,38 @@ export async function handleTriggerScraper({
             }
           }
           console.log(`[handleTriggerScraper] All ${uniqueComps.length} competitors completed for ${store.name}`);
+
+          // Auto Email: Dispatch daily snapshot email upon completion of store + all competitors
+          if (!isSpecialsOnly) {
+            try {
+              console.log(`[handleTriggerScraper] Triggering snapshot email for ${store.name}...`);
+              const { dispatchStoreSnapshotEmail } = await import('./autoEmailDispatcher.js');
+              await dispatchStoreSnapshotEmail({ storeId: store.id });
+            } catch (emailErr) {
+              console.error(`[handleTriggerScraper] Error sending snapshot email for ${store.name}:`, emailErr?.message);
+            }
+          }
         })();
+      } else {
+        // When there are no competitors to queue or competitor queueing is skipped, wait for storeJob and dispatch email
+        if (!isSpecialsOnly) {
+          (async () => {
+            if (typeof storeJob?.waitForCompletion === 'function') {
+              try {
+                await storeJob.waitForCompletion();
+              } catch (err) {
+                console.warn('[handleTriggerScraper] Store job wait error:', err?.message);
+              }
+            }
+            try {
+              console.log(`[handleTriggerScraper] Triggering snapshot email for ${store.name}...`);
+              const { dispatchStoreSnapshotEmail } = await import('./autoEmailDispatcher.js');
+              await dispatchStoreSnapshotEmail({ storeId: store.id });
+            } catch (emailErr) {
+              console.error(`[handleTriggerScraper] Error sending snapshot email for ${store.name}:`, emailErr?.message);
+            }
+          })();
+        }
       }
 
       return {

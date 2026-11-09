@@ -138,13 +138,28 @@ export default function SoldVehiclesView({ store }) {
     const base = result?.competitor_id_to_name || {};
     const raw = result?.data || [];
     const extended = { ...base };
+
+    if (dealershipKey && store?.name) {
+      extended[dealershipKey] = store.name;
+    }
+
+    if (Array.isArray(store?.competitors)) {
+      store.competitors.forEach(c => {
+        const key = c.competitor_key || c.competitorKey || c.id;
+        const name = c.competitor_name || c.competitorName || c.name;
+        if (key && name) {
+          extended[key] = name;
+        }
+      });
+    }
+
     raw.forEach(r => {
       if (!r.competitor_id && r.competitor_dealer_name) {
         extended[r.competitor_dealer_name] = r.competitor_dealer_name;
       }
     });
     return extended;
-  }, [result]);
+  }, [result, store, dealershipKey]);
 
   const clientStoreKey = useMemo(() => dealershipKey, [dealershipKey]);
 
@@ -152,6 +167,23 @@ export default function SoldVehiclesView({ store }) {
     const raw = result?.data || [];
     const seen = new Set();
     if (dealershipKey) seen.add(dealershipKey);
+
+    // Include all competitor IDs returned by backend for this store
+    if (Array.isArray(result?.competitor_ids)) {
+      result.competitor_ids.forEach(id => {
+        if (id) seen.add(id);
+      });
+    }
+
+    // Include all competitors configured on store object if present
+    if (Array.isArray(store?.competitors)) {
+      store.competitors.forEach(c => {
+        const key = c.competitor_key || c.competitorKey || c.id;
+        if (key) seen.add(key);
+      });
+    }
+
+    // Fallback: extract any competitor IDs found in sold data rows
     raw.forEach(r => {
       const key = r.competitor_id || r.competitor_dealer_name;
       if (key) seen.add(key);
@@ -165,7 +197,7 @@ export default function SoldVehiclesView({ store }) {
     });
 
     return ids;
-  }, [result, dealershipKey, competitorIdToName, clientStoreKey]);
+  }, [result, store, dealershipKey, competitorIdToName, clientStoreKey]);
 
   const rows = useMemo(() => {
     const raw = result?.data || [];

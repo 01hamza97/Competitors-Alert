@@ -309,7 +309,35 @@ export async function POST(request) {
               console.error('[API /api/scraper] Auto email trigger error:', emailErr.message);
             }
           })();
+        } else {
+          (async () => {
+            if (typeof storeJob?.waitForCompletion === 'function') {
+              try {
+                await storeJob.waitForCompletion();
+              } catch (e) {}
+            }
+            try {
+              const { dispatchStoreSnapshotEmail } = await import('@/lib/autoEmailDispatcher');
+              await dispatchStoreSnapshotEmail({ storeId });
+            } catch (emailErr) {
+              console.error('[API /api/scraper] Auto email trigger error:', emailErr.message);
+            }
+          })();
         }
+      } else {
+        (async () => {
+          if (typeof storeJob?.waitForCompletion === 'function') {
+            try {
+              await storeJob.waitForCompletion();
+            } catch (e) {}
+          }
+          try {
+            const { dispatchStoreSnapshotEmail } = await import('@/lib/autoEmailDispatcher');
+            await dispatchStoreSnapshotEmail({ storeId });
+          } catch (emailErr) {
+            console.error('[API /api/scraper] Auto email trigger error:', emailErr.message);
+          }
+        })();
       }
     }
 
