@@ -26,6 +26,7 @@ const hasFlag = (flag) => process.argv.includes(flag);
 const storeArg = getArg('--store') || (!process.argv[2]?.startsWith('--') ? process.argv[2] : null);
 const runAll = hasFlag('--all');
 const dryRun = hasFlag('--dry-run');
+const forceRun = hasFlag('--force');
 const maxRetries = parseInt(getArg('--retries') || '3', 10);
 const cooldownSeconds = parseInt(getArg('--cooldown') || '150', 10); // default 2.5 minutes (150s)
 
@@ -263,6 +264,17 @@ async function main() {
   console.log(`   Max Retries: ${maxRetries} | Failure Cooldown: ${cooldownSeconds}s`);
   console.log('================================================================\n');
 
+  // 0. Global Kill-Switch Check
+  const isAutoScrapeDisabled =
+    process.env.AUTO_SCRAPE_ENABLED === 'false' ||
+    process.env.DISABLE_AUTO_SCRAPE === 'true';
+
+  if (isAutoScrapeDisabled && !forceRun && !storeArg) {
+    console.log('🛑 [Kill Switch] Automated scraping is globally disabled (AUTO_SCRAPE_ENABLED=false). Exiting.');
+    console.log('   (To override, pass --force or set AUTO_SCRAPE_ENABLED=true in .env)');
+    process.exit(0);
+  }
+
   // 1. Fetch candidate stores
   const whereClause = {
     active: true,
@@ -306,6 +318,20 @@ async function main() {
     console.log(`• Store: "${store.name}" | Timezone: ${tz} | Is 11:00 AM Window: ${is11AM ? 'YES ✅' : 'NO ❌'}`);
 
     if (storeArg || runAll || is11AM) {
+      // Check if store was already successfully scraped for today's snapshot date
+      const cleanKey = (store.dealershipKey || store.id).replace(/^store_/, '');
+      const existingTodayCount = await prisma.competitorVehicleInventory.count({
+        where: {
+          dealerId: { in: [cleanKey, `store_${cleanKey}`, store.id] },
+          snapshotDate: localDate,
+        },
+      });
+
+      if (existingTodayCount > 0 && !forceRun) {
+        console.log(`  └─► ⏭️  [Already Scraped Today] Found ${existingTodayCount} vehicles for ${localDate}. Skipping. (Pass --force to re-scrape)`);
+        continue;
+      }
+
       storesToProcess.push({ store, tz, localDate });
     }
   }
