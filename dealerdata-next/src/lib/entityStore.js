@@ -502,6 +502,26 @@ export async function createEntity(entity, data) {
             isSystem: Boolean(newItem.is_system),
           },
         });
+      } else if (entity === 'User') {
+        const { hashPassword } = await import('./auth.js');
+        const rawPassword = newItem.password || 'Welcome2026!';
+        const hashedPassword = rawPassword.includes(':') ? rawPassword : hashPassword(rawPassword);
+        await prisma.user.create({
+          data: {
+            id: newItem.id,
+            email: (newItem.email || '').trim().toLowerCase(),
+            password: hashedPassword,
+            fullName: newItem.full_name || '',
+            role: newItem.role || 'user',
+            company: newItem.company || '',
+            plan: newItem.plan || 'Pro',
+            dealerGroupIds: newItem.dealer_group_ids || '',
+            storeIds: newItem.store_ids || '',
+            dailySummaryEnabled: newItem.daily_summary_enabled !== false,
+            appointmentsEnabled: newItem.appointments_enabled !== false,
+            competitorReportEnabled: Boolean(newItem.competitor_report_enabled),
+          },
+        });
       } else if (entity === 'PendingUser') {
         await prisma.pendingUser.create({
           data: {
@@ -615,20 +635,26 @@ export async function updateEntity(entity, id, data) {
           },
         });
       } else if (entity === 'User') {
+        const updateData = {
+          fullName: updatedItem.full_name,
+          company: updatedItem.company,
+          plan: updatedItem.plan,
+          role: updatedItem.role,
+          dealerGroupIds: updatedItem.dealer_group_ids,
+          storeIds: updatedItem.store_ids,
+          dailySummaryEnabled: updatedItem.daily_summary_enabled !== false,
+          appointmentsEnabled: updatedItem.appointments_enabled !== false,
+          competitorReportEnabled: Boolean(updatedItem.competitor_report_enabled),
+          customPermissions: updatedItem.custom_permissions,
+        };
+        if (updatedItem.password && updatedItem.password.trim()) {
+          const { hashPassword } = await import('./auth.js');
+          const rawPwd = updatedItem.password.trim();
+          updateData.password = rawPwd.includes(':') ? rawPwd : hashPassword(rawPwd);
+        }
         await prisma.user.update({
           where: { id },
-          data: {
-            fullName: updatedItem.full_name,
-            company: updatedItem.company,
-            plan: updatedItem.plan,
-            role: updatedItem.role,
-            dealerGroupIds: updatedItem.dealer_group_ids,
-            storeIds: updatedItem.store_ids,
-            dailySummaryEnabled: updatedItem.daily_summary_enabled !== false,
-            appointmentsEnabled: updatedItem.appointments_enabled !== false,
-            competitorReportEnabled: Boolean(updatedItem.competitor_report_enabled),
-            customPermissions: updatedItem.custom_permissions,
-          },
+          data: updateData,
         });
       } else if (entity === 'Store') {
         await prisma.store.update({

@@ -28,6 +28,7 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
   const [addForm, setAddForm] = useState({
     email: '',
     full_name: '',
+    password: '',
     role: 'user',
     dealer_group_ids: '',
     store_ids: '',
@@ -157,6 +158,7 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
     setEditForm({
       full_name: user.full_name || '',
       email: user.email || '',
+      password: '',
       role: user.role || 'user',
       dealer_group_ids: user.dealer_group_ids || '',
       store_ids: user.store_ids || '',
@@ -171,12 +173,16 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
       if (user.isPending) {
         await base44.entities.PendingUser.update(user.id, editForm);
       } else {
-        await base44.entities.User.update(user.id, {
+        const updatePayload = {
           full_name: editForm.full_name,
           role: editForm.role,
           dealer_group_ids: editForm.dealer_group_ids,
           store_ids: editForm.store_ids,
-        });
+        };
+        if (editForm.password && editForm.password.trim()) {
+          updatePayload.password = editForm.password.trim();
+        }
+        await base44.entities.User.update(user.id, updatePayload);
       }
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['pendingUsers'] });
@@ -287,12 +293,35 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
     }
     setAddingUser(true);
     try {
-      await base44.entities.PendingUser.create(addForm);
-      qc.invalidateQueries({ queryKey: ['pendingUsers'] });
+      if (addForm.password && addForm.password.trim()) {
+        // Direct creation of registered user with password
+        await base44.entities.User.create({
+          ...addForm,
+          email: addForm.email.trim().toLowerCase(),
+          password: addForm.password.trim(),
+        });
+        // Check if there was an existing PendingUser with same email and clean it up
+        const existingPending = pendingUsers.find(
+          p => (p.email || '').toLowerCase() === addForm.email.trim().toLowerCase()
+        );
+        if (existingPending) {
+          try {
+            await base44.entities.PendingUser.delete(existingPending.id);
+          } catch (_) {}
+        }
+        qc.invalidateQueries({ queryKey: ['users'] });
+        qc.invalidateQueries({ queryKey: ['pendingUsers'] });
+        toast.success('User account created with login credentials!');
+      } else {
+        await base44.entities.PendingUser.create(addForm);
+        qc.invalidateQueries({ queryKey: ['pendingUsers'] });
+        toast.success('User pre-added (Pending)');
+      }
       setShowAddForm(false);
       setAddForm({
         email: '',
         full_name: '',
+        password: '',
         role: 'user',
         dealer_group_ids: '',
         store_ids: '',
@@ -300,7 +329,6 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
         appointments_enabled: false,
         competitor_report_enabled: false,
       });
-      toast.success('User pre-added');
     } catch (e) {
       toast.error(e.message || 'Failed to add user');
     }
@@ -312,8 +340,13 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
       {/* Add User Form */}
       {showAddForm && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-gray-900">Pre-Add User</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Add New User</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Enter a password to create an active account immediately with login credentials, or leave it blank to pre-add as pending.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
             <Input
               type="email"
               placeholder="Email *"
@@ -325,6 +358,13 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
               placeholder="Full Name"
               value={addForm.full_name}
               onChange={e => setAddForm(f => ({ ...f, full_name: e.target.value }))}
+              className="text-sm h-8"
+            />
+            <Input
+              type="password"
+              placeholder="Password (for direct login)"
+              value={addForm.password}
+              onChange={e => setAddForm(f => ({ ...f, password: e.target.value }))}
               className="text-sm h-8"
             />
             <select
@@ -590,15 +630,31 @@ export default function AdminUsersTable({ allGroups, allStores, currentUser }) {
               </div>
             </div>
 
-            {/* Role */}
-            <div>
-              <label className="text-xs font-semibold text-gray-500 mb-1 block">Role</label>
-              <select value={editForm.role || 'user'} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}
-                className="text-sm border border-gray-200 rounded-md px-2 h-8 bg-white w-full">
-                <option value="user">User</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
-              </select>
+            {/* Role & Reset Password */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 mb-1 block">Role</label>
+                <select value={editForm.role || 'user'} onChange={e => setEditForm(f => ({ ...f, role: e.target.value }))}
+                  className="text-sm border border-gray-200 rounded-md px-2 h-8 bg-white w-full">
+                  <option value="user">User</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              {!editingUser?.isPending && (
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 mb-1 block">
+                    Reset Password <span className="font-normal text-gray-400">(leave blank to keep)</span>
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="New password"
+                    value={editForm.password || ''}
+                    onChange={e => setEditForm(f => ({ ...f, password: e.target.value }))}
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Dealer Groups */}
