@@ -16,6 +16,11 @@ import {
   ChevronRight,
   Sparkles,
   Zap,
+  Square,
+  Power,
+  RotateCcw,
+  ShieldAlert,
+  OctagonAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -29,6 +34,14 @@ export default function ScraperControlHub() {
   const [triggeringStoreId, setTriggeringStoreId] = useState(null);
   const [selectedLog, setSelectedLog] = useState(null);
   const [storeOptions, setStoreOptions] = useState({});
+
+  // Admin Kill Switch & Process Control State
+  const [isAdmin, setIsAdmin] = useState(true);
+  const [killSwitchState, setKillSwitchState] = useState({ active: false });
+  const [runningJobs, setRunningJobs] = useState([]);
+  const [killingRunId, setKillingRunId] = useState(null);
+  const [killingAll, setKillingAll] = useState(false);
+  const [resettingStuck, setResettingStuck] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -55,14 +68,121 @@ export default function ScraperControlHub() {
     } finally {
       setLoading(false);
     }
+
+    // Also fetch admin kill switch status
+    try {
+      const ctrlRes = await fetch('/api/scraper/control');
+      if (ctrlRes.status === 403) {
+        setIsAdmin(false);
+      } else {
+        const ctrlData = await ctrlRes.json();
+        if (ctrlData.success) {
+          setIsAdmin(true);
+          setKillSwitchState(ctrlData.killSwitch || { active: false });
+          setRunningJobs(ctrlData.runningJobs || []);
+        }
+      }
+    } catch (_) {}
   };
 
   useEffect(() => {
     fetchData();
-    // Poll every 6 seconds to update live statuses
-    const interval = setInterval(fetchData, 6000);
+    // Poll every 5 seconds to update live statuses
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleToggleKillSwitch = async (newActive) => {
+    const actionText = newActive ? 'activate the Emergency Kill Switch' : 'deactivate the Kill Switch and resume scraping';
+    if (!window.confirm(`Are you sure you want to ${actionText}?`)) return;
+
+    try {
+      const res = await fetch('/api/scraper/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle_kill_switch', active: newActive }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        setKillSwitchState(data.killSwitch);
+        fetchData();
+      } else {
+        toast.error(data.error || 'Failed to update kill switch');
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    }
+  };
+
+  const handleKillAll = async () => {
+    if (!window.confirm('Force kill ALL active crawler processes and abort running jobs right now?')) return;
+    setKillingAll(true);
+    try {
+      const res = await fetch('/api/scraper/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'kill_all' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        fetchData();
+      } else {
+        toast.error(data.error || 'Failed to kill processes');
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setKillingAll(false);
+    }
+  };
+
+  const handleKillSingleRun = async (runId, dealerName) => {
+    if (!runId) return;
+    if (!window.confirm(`Stop and terminate scraper for "${dealerName || runId}"?`)) return;
+    setKillingRunId(runId);
+    try {
+      const res = await fetch('/api/scraper/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'kill_run', runId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Scraper for "${dealerName || runId}" terminated`);
+        fetchData();
+      } else {
+        toast.error(data.error || 'Failed to terminate run');
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setKillingRunId(null);
+    }
+  };
+
+  const handleResetStuck = async () => {
+    setResettingStuck(true);
+    try {
+      const res = await fetch('/api/scraper/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset_stuck', olderThanMinutes: 15 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(data.message);
+        fetchData();
+      } else {
+        toast.error(data.error || 'Failed to reset stuck jobs');
+      }
+    } catch (err) {
+      toast.error(`Error: ${err.message}`);
+    } finally {
+      setResettingStuck(false);
+    }
+  };
 
   const handleTriggerScrape = async (store) => {
     setTriggeringStoreId(store.id);
@@ -127,6 +247,91 @@ export default function ScraperControlHub() {
 
   return (
     <div className="space-y-6">
+      {/* Admin Emergency Kill Switch & Safety Safeguard (Admin Only) */}
+      {isAdmin && (
+        <div
+          className={`rounded-xl border p-4 shadow-sm transition-all ${
+            killSwitchState?.active
+              ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-400'
+              : 'bg-white border-slate-200'
+          }`}
+        >
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div
+                className={`p-2.5 rounded-xl shrink-0 ${
+                  killSwitchState?.active
+                    ? 'bg-rose-600 text-white animate-pulse'
+                    : 'bg-slate-100 text-slate-700'
+                }`}
+              >
+                {killSwitchState?.active ? <OctagonAlert size={22} /> : <ShieldAlert size={22} />}
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Scraper Engine Safeguard & Emergency Kill Switch
+                  </h3>
+                  {killSwitchState?.active ? (
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-600 text-white animate-pulse">
+                      HALTED (Kill Switch Active)
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      Normal (Active)
+                    </span>
+                  )}
+                  {runningJobs.length > 0 && (
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                      {runningJobs.length} active crawl{runningJobs.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                  {killSwitchState?.active
+                    ? `⚠️ Emergency stop engaged: "${killSwitchState.reason || 'Manual kill switch'}" (Activated by ${killSwitchState.updatedBy || 'admin'}). All crawlers are stopped.`
+                    : 'Admin kill switch immediately terminates hanging crawlers, frees browser memory, and protects other stores from being blocked.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              <button
+                onClick={handleResetStuck}
+                disabled={resettingStuck}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all"
+                title="Resets jobs stuck running for > 15 minutes to allow future dealership crawls"
+              >
+                <RotateCcw size={13} className={resettingStuck ? 'animate-spin' : ''} />
+                {resettingStuck ? 'Resetting…' : 'Reset Stuck Jobs'}
+              </button>
+
+              <button
+                onClick={handleKillAll}
+                disabled={killingAll}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white shadow-sm transition-all"
+                title="Force kill all active crawler processes right now"
+              >
+                <Square size={13} className="fill-white" />
+                {killingAll ? 'Killing…' : 'Kill All Crawlers'}
+              </button>
+
+              <button
+                onClick={() => handleToggleKillSwitch(!killSwitchState?.active)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-sm transition-all ${
+                  killSwitchState?.active
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-rose-600 hover:bg-rose-700 text-white'
+                }`}
+              >
+                <Power size={13} />
+                {killSwitchState?.active ? 'Resume Scraper Engine' : 'Emergency Stop (Kill Switch)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-3">
@@ -346,27 +551,40 @@ export default function ScraperControlHub() {
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => handleTriggerScrape(store)}
-                          disabled={isRunning || !store.newInventoryUrl}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all ${
-                            isRunning
-                              ? 'bg-amber-100 text-amber-700 cursor-not-allowed'
-                              : !store.newInventoryUrl
-                              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                              : 'bg-slate-900 hover:bg-slate-800 text-white active:scale-95'
-                          }`}
-                        >
-                          {isRunning ? (
-                            <>
-                              <RefreshCw size={12} className="animate-spin" /> Crawling…
-                            </>
-                          ) : (
-                            <>
-                              <Play size={12} /> Start Scraper
-                            </>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleTriggerScrape(store)}
+                            disabled={isRunning || !store.newInventoryUrl}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all ${
+                              isRunning
+                                ? 'bg-amber-100 text-amber-700 cursor-not-allowed'
+                                : !store.newInventoryUrl
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'bg-slate-900 hover:bg-slate-800 text-white active:scale-95'
+                            }`}
+                          >
+                            {isRunning ? (
+                              <>
+                                <RefreshCw size={12} className="animate-spin" /> Crawling…
+                              </>
+                            ) : (
+                              <>
+                                <Play size={12} /> Start Scraper
+                              </>
+                            )}
+                          </button>
+
+                          {isRunning && isAdmin && store.scrapeStatus?.runId && (
+                            <button
+                              onClick={() => handleKillSingleRun(store.scrapeStatus.runId, store.name)}
+                              disabled={killingRunId === store.scrapeStatus.runId}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm transition-all"
+                              title="Stop and terminate this dealership scraper"
+                            >
+                              <Square size={11} className="fill-white" /> Stop
+                            </button>
                           )}
-                        </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -459,12 +677,24 @@ export default function ScraperControlHub() {
                     </td>
 
                     <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={() => setSelectedLog(log)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
-                      >
-                        <Terminal size={12} /> View Logs
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {log.status === 'running' && isAdmin && (
+                          <button
+                            onClick={() => handleKillSingleRun(log.runId, log.dealerName)}
+                            disabled={killingRunId === log.runId}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition-colors"
+                            title="Kill this scrape run immediately"
+                          >
+                            <Square size={10} className="fill-white" /> Kill
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setSelectedLog(log)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
+                        >
+                          <Terminal size={12} /> View Logs
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

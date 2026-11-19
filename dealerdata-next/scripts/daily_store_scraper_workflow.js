@@ -15,6 +15,7 @@ const prisma = new PrismaClient();
 // Import launchScraperJob and log helpers
 const { launchScraperJob } = await import('../src/lib/scraperRunner.js');
 const { dispatchStoreSnapshotEmail } = await import('../src/lib/autoEmailDispatcher.js');
+const { isKillSwitchActive } = await import('../src/lib/scraperKillSwitch.js');
 
 // Helper to parse CLI arguments
 function getArg(flag) {
@@ -176,6 +177,21 @@ async function scrapeWithMonitorAndRetry({
     console.log(`\n🚀 ${label} Attempt ${attempt} of ${maxRetries}...`);
 
     try {
+      // Check kill switch before starting each attempt
+      const killState = await isKillSwitchActive();
+      if (killState.active && !forceRun) {
+        console.log(`🛑 [Kill Switch Active] ${label} halted: ${killState.reason}`);
+        return {
+          dealerName,
+          storeId,
+          isCompetitor,
+          success: false,
+          attempts: attempt,
+          lastError: `Halted by Scraper Kill Switch: ${killState.reason}`,
+          elapsed: formatDuration(Date.now() - startTime),
+        };
+      }
+
       const job = await launchScraperJob({
         runId,
         storeId,
@@ -188,9 +204,26 @@ async function scrapeWithMonitorAndRetry({
         forceRefresh: true, // Always force fresh crawl for daily workflow
       });
 
-      // Wait for process to fully exit
-      if (typeof job?.waitForCompletion === 'function') {
-        await job.waitForCompletion();
+      // Per-dealership timeout race (default 15 minutes max per dealership target)
+      const perDealerTimeoutMinutes = parseInt(process.env.SCRAPER_PER_DEALER_TIMEOUT_MINUTES || '15', 10);
+      const perDealerTimeoutMs = perDealerTimeoutMinutes * 60 * 1000;
+      let watchdogTimer = null;
+
+      const timeoutPromise = new Promise((_, reject) => {
+        watchdogTimer = setTimeout(() => {
+          if (typeof job?.kill === 'function') {
+            try { job.kill(); } catch (_) {}
+          }
+          reject(new Error(`Dealership crawl exceeded timeout limit of ${perDealerTimeoutMinutes} minutes`));
+        }, perDealerTimeoutMs);
+      });
+
+      try {
+        if (typeof job?.waitForCompletion === 'function') {
+          await Promise.race([job.waitForCompletion(), timeoutPromise]);
+        }
+      } finally {
+        if (watchdogTimer) clearTimeout(watchdogTimer);
       }
 
       // Allow 1 second for logs/DB to flush
@@ -265,6 +298,14 @@ async function main() {
   console.log('================================================================\n');
 
   // 0. Global Kill-Switch Check
+  const killSwitchState = await isKillSwitchActive();
+  if (killSwitchState.active && !forceRun) {
+    console.log(`🛑 [Kill Switch Active] Automated scraping is halted: ${killSwitchState.reason}`);
+    console.log(`   Engaged by: ${killSwitchState.updatedBy || 'admin'} at ${killSwitchState.updatedAt || 'recently'}`);
+    console.log('   (To override manually, pass --force)');
+    process.exit(0);
+  }
+
   const isAutoScrapeDisabled =
     process.env.AUTO_SCRAPE_ENABLED === 'false' ||
     process.env.DISABLE_AUTO_SCRAPE === 'true';
@@ -354,6 +395,13 @@ async function main() {
 
   // 3. Process each eligible store and its competitors sequentially
   for (const { store, tz, localDate } of storesToProcess) {
+    // Check if admin activated kill switch while workflow is in flight
+    const loopKillCheck = await isKillSwitchActive();
+    if (loopKillCheck.active && !forceRun) {
+      console.log(`\n🛑 [Kill Switch Triggered] Workflow aborted between stores: ${loopKillCheck.reason}. Exiting immediately.`);
+      break;
+    }
+
     console.log(`\n================================================================`);
     console.log(`🏁 PROCESSING STORE SUITE: ${store.name}`);
     console.log(`   Timezone: ${tz} | Snapshot Date: ${localDate}`);

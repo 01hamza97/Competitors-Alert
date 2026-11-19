@@ -3,6 +3,12 @@ import path from 'path';
 import fs from 'fs';
 import prisma from './prisma.js';
 import { normalizeDomain } from './domainUtils.js';
+import {
+  isKillSwitchActive,
+  registerScraperProcess,
+  unregisterScraperProcess,
+  killProcessTree,
+} from './scraperKillSwitch.js';
 
 /**
  * Creates a run log entry in MySQL
@@ -92,6 +98,22 @@ export function getSpecialsDir() {
 }
 
 /**
+ * Resolves the root directory of the main dealerdata-scraper engine
+ */
+export function getScraperDir() {
+  const candidates = [
+    path.join(process.cwd(), '..', 'dealerdata-scraper'),
+    path.join(process.cwd(), 'dealerdata-scraper'),
+    '/var/www/Competitors-Alert/dealerdata-scraper',
+    '/var/www/dealerdata/dealerdata-scraper',
+  ];
+  for (const d of candidates) {
+    if (fs.existsSync(d)) return d;
+  }
+  return path.join(process.cwd(), '..', 'dealerdata-scraper');
+}
+
+/**
  * Launches an asynchronous dedicated specials scraper for a dealership.
  */
 export async function launchSpecialsJob({
@@ -107,6 +129,33 @@ export async function launchSpecialsJob({
   const generatedRunId = runId || `run_${Date.now()}_${cleanTargetStoreId}_specials`;
   const effectiveUrl = specialsUrl || targetUrl;
   const domain = normalizeDomain(effectiveUrl || targetUrl);
+
+  // 0. Safety Kill Switch Check
+  const killSwitch = await isKillSwitchActive();
+  if (killSwitch.active) {
+    console.warn(`[Specials Runner] 🛑 Skipping specials scrape ${generatedRunId}: ${killSwitch.reason}`);
+    const abortedLog = await createRunLog({
+      runId: generatedRunId,
+      storeId: cleanTargetStoreId,
+      dealerName: dealerName || 'Dealership',
+      targetUrl: effectiveUrl,
+      domain,
+      mode: 'specials',
+      status: 'failed',
+      startedAt: new Date(),
+      completedAt: new Date(),
+      errorMessage: `Halted by Scraper Kill Switch: ${killSwitch.reason}`,
+      logOutput: `[${new Date().toISOString()}] Scrape blocked because emergency kill switch is ACTIVE.\n`,
+    });
+    return {
+      runId: generatedRunId,
+      logId: abortedLog.id,
+      status: 'failed',
+      abortedByKillSwitch: true,
+      waitForCompletion: () => Promise.resolve(1),
+      kill: () => {},
+    };
+  }
 
   // 1. Create run log entry in MySQL
   const runLog = await createRunLog({
@@ -175,7 +224,22 @@ export async function launchSpecialsJob({
       ...(resolvedProxy ? { SCRAPER_PROXY_URL: resolvedProxy } : {}),
     },
     shell: false,
+    detached: process.platform !== 'win32',
   });
+
+  registerScraperProcess(generatedRunId, { child, storeId: cleanTargetStoreId, dealerName });
+
+  const timeoutMinutes = parseInt(process.env.SCRAPER_TIMEOUT_MINUTES || '15', 10);
+  const watchdogTimer = setTimeout(async () => {
+    console.warn(`[Specials Runner] ⚠️ Scrape ${generatedRunId} exceeded ${timeoutMinutes}m timeout! Force killing process...`);
+    killProcessTree(child.pid);
+    unregisterScraperProcess(generatedRunId);
+    await updateRunLog(runLog.id, {
+      status: 'failed',
+      completedAt: new Date(),
+      errorMessage: `Execution exceeded maximum limit of ${timeoutMinutes} minutes. Terminated by watchdog to unblock the system.`,
+    }).catch(() => {});
+  }, timeoutMinutes * 60 * 1000);
 
   let lastLogFlush = Date.now();
   const flushLiveLogs = () => {
@@ -203,6 +267,8 @@ export async function launchSpecialsJob({
   });
 
   child.on('close', async (code) => {
+    clearTimeout(watchdogTimer);
+    unregisterScraperProcess(generatedRunId);
     console.log(`[Specials Runner] Specials scrape ${generatedRunId} exited with code: ${code}`);
 
     const htmlSpecialsMatch = accumulatedLogs.match(/Structured HTML Specials:\s*(\d+)/i);
@@ -237,6 +303,11 @@ export async function launchSpecialsJob({
     runId: generatedRunId,
     logId: runLog.id,
     status: 'running',
+    kill: () => {
+      clearTimeout(watchdogTimer);
+      killProcessTree(child.pid);
+      unregisterScraperProcess(generatedRunId);
+    },
     waitForCompletion: () =>
       new Promise((resolve) => {
         if (child.exitCode !== null) {
@@ -268,6 +339,33 @@ export async function launchScraperJob({
 }) {
   const generatedRunId = runId || `run_${Date.now()}_${storeId || 'manual'}`;
   const domain = normalizeDomain(targetUrl);
+
+  // 0. Safety Kill Switch Check
+  const killSwitch = await isKillSwitchActive();
+  if (killSwitch.active) {
+    console.warn(`[Scraper Runner] 🛑 Skipping scrape ${generatedRunId}: ${killSwitch.reason}`);
+    const abortedLog = await createRunLog({
+      runId: generatedRunId,
+      storeId: storeId || 'custom_store',
+      dealerName,
+      targetUrl,
+      domain,
+      mode,
+      status: 'failed',
+      startedAt: new Date(),
+      completedAt: new Date(),
+      errorMessage: `Halted by Scraper Kill Switch: ${killSwitch.reason}`,
+      logOutput: `[${new Date().toISOString()}] Scrape blocked because emergency kill switch is ACTIVE.\n`,
+    });
+    return {
+      runId: generatedRunId,
+      logId: abortedLog.id,
+      status: 'failed',
+      abortedByKillSwitch: true,
+      waitForCompletion: () => Promise.resolve(1),
+      kill: () => {},
+    };
+  }
 
   // If user requested specials only, directly delegate to dedicated specials scraper
   if (specialsOnly) {
@@ -393,7 +491,7 @@ export async function launchScraperJob({
   });
 
   // 2. Spawn scraper CLI worker asynchronously
-  const scraperDir = path.join(process.cwd(), '..', 'dealerdata-scraper');
+  const scraperDir = getScraperDir();
   const distCli = path.join(scraperDir, 'dist', 'cli.js');
   const useCompiled = fs.existsSync(distCli);
 
@@ -459,7 +557,22 @@ export async function launchScraperJob({
       ...(proxyUrl ? { SCRAPER_PROXY_URL: proxyUrl } : {}),
     },
     shell: false,
+    detached: process.platform !== 'win32',
   });
+
+  registerScraperProcess(generatedRunId, { child, storeId, dealerName });
+
+  const timeoutMinutes = parseInt(process.env.SCRAPER_TIMEOUT_MINUTES || '15', 10);
+  const watchdogTimer = setTimeout(async () => {
+    console.warn(`[Scraper Runner] ⚠️ Scrape ${generatedRunId} exceeded ${timeoutMinutes}m timeout! Force killing process...`);
+    killProcessTree(child.pid);
+    unregisterScraperProcess(generatedRunId);
+    await updateRunLog(runLog.id, {
+      status: 'failed',
+      completedAt: new Date(),
+      errorMessage: `Scrape run timed out after ${timeoutMinutes} minutes. Aborted by watchdog to prevent blocking subsequent dealerships.`,
+    }).catch(() => {});
+  }, timeoutMinutes * 60 * 1000);
 
   let lastLogFlush = Date.now();
   const flushLiveLogs = () => {
@@ -487,6 +600,8 @@ export async function launchScraperJob({
   });
 
   child.on('close', async (code) => {
+    clearTimeout(watchdogTimer);
+    unregisterScraperProcess(generatedRunId);
     console.log(`[Scraper Runner] Scraper run ${generatedRunId} exited with code: ${code}`);
 
     let totalFound = 0;
@@ -578,6 +693,11 @@ export async function launchScraperJob({
     runId: generatedRunId,
     logId: runLog.id,
     status: 'running',
+    kill: () => {
+      clearTimeout(watchdogTimer);
+      killProcessTree(child.pid);
+      unregisterScraperProcess(generatedRunId);
+    },
     waitForCompletion: () =>
       new Promise((resolve) => {
         if (child.exitCode !== null) {
