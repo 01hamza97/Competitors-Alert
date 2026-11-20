@@ -17,11 +17,11 @@ import PlanBadge from '@/components/saas/PlanBadge';
 import { useAuth } from '@/lib/AuthContext';
 
 const navItems = [
-  { to: '/competitor-analysis', icon: TrendingUp, label: 'Competitive Analysis', hasSubnav: true },
-  { to: '/vendor-performance', icon: BarChart2, label: 'Vendor Performance' },
-  { to: '/inventory-vs-sold', icon: Layers, label: 'Inventory vs Leads' },
-  { to: '/specials-entry', icon: ClipboardList, label: 'Specials Entry Tool' },
-  { to: '/admin/clients', icon: ShieldCheck, label: 'Client Admin', adminOnly: true },
+  { to: '/competitor-analysis', icon: TrendingUp, label: 'Competitive Analysis', hasSubnav: true, module: 'competitor_analysis' },
+  { to: '/vendor-performance', icon: BarChart2, label: 'Vendor Performance', module: 'vendor_performance' },
+  { to: '/inventory-vs-sold', icon: Layers, label: 'Inventory vs Leads', module: 'lead_performance' },
+  { to: '/specials-entry', icon: ClipboardList, label: 'Specials Entry Tool', module: 'specials_entry' },
+  { to: '/admin/clients', icon: ShieldCheck, label: 'Client Admin', adminOnly: true, module: 'client_admin' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -77,8 +77,9 @@ export default function AppLayout({ children }) {
 
         {/* Navigation links */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navItems.map(({ to, icon: Icon, label, hasSubnav, adminOnly }) => {
+          {navItems.map(({ to, icon: Icon, label, hasSubnav, adminOnly, module }) => {
             if (adminOnly && user?.role !== 'admin') return null;
+            if (module && user && user.role !== 'admin' && user.permissions && !user.permissions.includes(module)) return null;
             const isActive = to === '/' ? pathname === '/' : pathname.startsWith(to);
             return (
               <div key={to}>

@@ -72,6 +72,42 @@ const DEFAULT_USERS = [
   }
 ];
 
+export async function resolveUserPermissions(role) {
+  if (role === 'admin') {
+    return [
+      'lead_performance',
+      'appointments',
+      'salesperson_activity',
+      'competitor_analysis',
+      'specials_entry',
+      'vendor_performance',
+      'team_management',
+      'billing',
+      'client_admin',
+    ];
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const roleRecord = await prisma.role.findFirst({
+        where: { OR: [{ slug: role }, { name: role }] },
+      });
+      if (roleRecord && roleRecord.permissions) {
+        const parsed = typeof roleRecord.permissions === 'string'
+          ? JSON.parse(roleRecord.permissions)
+          : roleRecord.permissions;
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (_) {}
+  }
+
+  // Default fallbacks if role record not found
+  if (role === 'manager') {
+    return ['lead_performance', 'appointments', 'salesperson_activity', 'competitor_analysis', 'specials_entry', 'vendor_performance'];
+  }
+  return ['lead_performance', 'appointments', 'competitor_analysis'];
+}
+
 export async function findUserByEmail(email) {
   if (!email) return null;
   const cleanEmail = email.trim().toLowerCase();
@@ -80,6 +116,7 @@ export async function findUserByEmail(email) {
     try {
       const u = await prisma.user.findUnique({ where: { email: cleanEmail } });
       if (u) {
+        const permissions = await resolveUserPermissions(u.role);
         return {
           id: u.id,
           email: u.email,
@@ -90,6 +127,7 @@ export async function findUserByEmail(email) {
           plan: u.plan,
           dealer_group_ids: u.dealerGroupIds,
           store_ids: u.storeIds,
+          permissions,
           created_at: u.createdAt,
         };
       }
@@ -99,7 +137,12 @@ export async function findUserByEmail(email) {
   }
 
   const users = getUsers();
-  return users.find(u => u.email.toLowerCase() === cleanEmail) || null;
+  const matched = users.find(u => u.email.toLowerCase() === cleanEmail) || null;
+  if (matched) {
+    const permissions = await resolveUserPermissions(matched.role);
+    return { ...matched, permissions };
+  }
+  return null;
 }
 
 export function getUsers() {
@@ -186,6 +229,7 @@ export async function getSessionUser(token) {
           return null;
         }
         const { password, ...safeUser } = dbSession.user;
+        const permissions = await resolveUserPermissions(safeUser.role);
         return {
           id: safeUser.id,
           email: safeUser.email,
@@ -195,6 +239,7 @@ export async function getSessionUser(token) {
           plan: safeUser.plan,
           dealer_group_ids: safeUser.dealerGroupIds,
           store_ids: safeUser.storeIds,
+          permissions,
           created_at: safeUser.createdAt,
         };
       }
@@ -216,7 +261,8 @@ export async function getSessionUser(token) {
   const user = users.find(u => u.id === session.userId);
   if (!user) return null;
   const { password, ...safeUser } = user;
-  return safeUser;
+  const permissions = await resolveUserPermissions(safeUser.role);
+  return { ...safeUser, permissions };
 }
 
 export async function destroySession(token) {

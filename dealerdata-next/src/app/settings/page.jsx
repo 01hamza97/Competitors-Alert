@@ -28,8 +28,11 @@ import TeamAndRbacSettings from '@/components/settings/TeamAndRbacSettings';
 export default function SettingsPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
+  const canManageTeam = user?.role === 'admin' || (user?.permissions && user.permissions.includes('team_management'));
+
   const requestedTab = searchParams.get('tab');
-  const defaultTab = requestedTab && requestedTab !== 'scraper' ? requestedTab : 'profile';
+  const initialTab = requestedTab && requestedTab !== 'scraper' ? requestedTab : 'profile';
+  const defaultTab = (!canManageTeam && initialTab === 'team') ? 'profile' : initialTab;
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -154,9 +157,11 @@ export default function SettingsPage() {
           <TabsTrigger value="dealership" className="text-xs font-semibold gap-1.5">
             <Building2 size={14} /> Dealership Group
           </TabsTrigger>
-          <TabsTrigger value="team" className="text-xs font-semibold gap-1.5">
-            <Users size={14} /> Team & RBAC
-          </TabsTrigger>
+          {canManageTeam && (
+            <TabsTrigger value="team" className="text-xs font-semibold gap-1.5">
+              <Users size={14} /> Team & RBAC
+            </TabsTrigger>
+          )}
           <TabsTrigger value="notifications" className="text-xs font-semibold gap-1.5">
             <Bell size={14} /> Email Reports
           </TabsTrigger>
@@ -292,9 +297,11 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Tab 3: Team & RBAC Permissions */}
-        <TabsContent value="team" className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <TeamAndRbacSettings currentUser={user} />
-        </TabsContent>
+        {canManageTeam && (
+          <TabsContent value="team" className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
+            <TeamAndRbacSettings currentUser={user} />
+          </TabsContent>
+        )}
 
         {/* Tab 4: Notifications & Automations */}
         <TabsContent value="notifications" className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm space-y-6 max-w-3xl">

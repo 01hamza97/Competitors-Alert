@@ -127,6 +127,22 @@ function parsePermissions(perms) {
 }
 
 export default function TeamAndRbacSettings({ currentUser }) {
+  const canManageTeam = currentUser?.role === 'admin' || (currentUser?.permissions && currentUser.permissions.includes('team_management'));
+
+  if (!canManageTeam) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
+        <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-500 mx-auto flex items-center justify-center">
+          <Lock size={22} />
+        </div>
+        <h3 className="text-base font-bold text-slate-900">Access Restricted</h3>
+        <p className="text-xs text-slate-500 max-w-md mx-auto">
+          Your assigned role does not have permission to view or manage Team Members and RBAC configuration. Please contact your system administrator if you require access.
+        </p>
+      </div>
+    );
+  }
+
   const [activeSection, setActiveSection] = useState('users'); // 'users' | 'roles'
   const qc = useQueryClient();
 
