@@ -22,6 +22,7 @@ export default function PendingUserForm({ selectedGroupId, selectedStoreId, allG
   const [form, setForm] = useState({
     email: '',
     full_name: '',
+    password: '',
     role: 'user',
     dealer_group_ids: selectedGroupId || '',
     store_ids: selectedStoreId || '',
@@ -39,11 +40,21 @@ export default function PendingUserForm({ selectedGroupId, selectedStoreId, allG
     }
     setSaving(true);
     try {
-      await base44.entities.PendingUser.create(form);
-      toast.success('User pre-setup added. Send invite to proceed.');
+      if (form.password && form.password.trim()) {
+        await base44.entities.User.create({
+          ...form,
+          email: form.email.trim().toLowerCase(),
+          password: form.password.trim(),
+        });
+        toast.success('User account created with password!');
+      } else {
+        await base44.entities.PendingUser.create(form);
+        toast.success('User pre-setup added. Send invite to proceed.');
+      }
       setForm({
         email: '',
         full_name: '',
+        password: '',
         role: 'user',
         dealer_group_ids: selectedGroupId || '',
         store_ids: selectedStoreId || '',
@@ -80,6 +91,16 @@ export default function PendingUserForm({ selectedGroupId, selectedStoreId, allG
             placeholder="John Smith"
             value={form.full_name}
             onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))}
+            className="text-sm h-8"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Password (Optional)</label>
+          <Input
+            type="password"
+            placeholder="Set login password"
+            value={form.password || ''}
+            onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
             className="text-sm h-8"
           />
         </div>

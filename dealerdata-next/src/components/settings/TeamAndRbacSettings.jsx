@@ -169,6 +169,7 @@ export default function TeamAndRbacSettings({ currentUser }) {
   const [addUserForm, setAddUserForm] = useState({
     email: '',
     full_name: '',
+    password: '',
     role: 'user',
     dealer_group_ids: '',
     store_ids: '',
@@ -273,13 +274,36 @@ export default function TeamAndRbacSettings({ currentUser }) {
     }
     setAddingUser(true);
     try {
-      await base44.entities.PendingUser.create(addUserForm);
-      qc.invalidateQueries({ queryKey: ['pendingUsers'] });
-      toast.success(`Invited ${addUserForm.email} successfully!`);
+      if (addUserForm.password && addUserForm.password.trim()) {
+        // Direct creation of registered user with password
+        await base44.entities.User.create({
+          ...addUserForm,
+          email: addUserForm.email.trim().toLowerCase(),
+          password: addUserForm.password.trim(),
+        });
+
+        // Clean up any pending user record if it existed
+        const existingPending = pendingUsers.find(
+          p => (p.email || '').toLowerCase() === addUserForm.email.trim().toLowerCase()
+        );
+        if (existingPending) {
+          try {
+            await base44.entities.PendingUser.delete(existingPending.id);
+          } catch (_) {}
+        }
+        qc.invalidateQueries({ queryKey: ['users'] });
+        qc.invalidateQueries({ queryKey: ['pendingUsers'] });
+        toast.success(`User ${addUserForm.email} created with password!`);
+      } else {
+        await base44.entities.PendingUser.create(addUserForm);
+        qc.invalidateQueries({ queryKey: ['pendingUsers'] });
+        toast.success(`Invited ${addUserForm.email} successfully!`);
+      }
       setShowAddUserModal(false);
       setAddUserForm({
         email: '',
         full_name: '',
+        password: '',
         role: 'user',
         dealer_group_ids: '',
         store_ids: '',
@@ -300,6 +324,7 @@ export default function TeamAndRbacSettings({ currentUser }) {
     setEditUserForm({
       full_name: user.full_name || '',
       email: user.email || '',
+      password: '',
       role: user.role || 'user',
       dealer_group_ids: user.dealer_group_ids || '',
       store_ids: user.store_ids || '',
@@ -317,7 +342,11 @@ export default function TeamAndRbacSettings({ currentUser }) {
         await base44.entities.PendingUser.update(editingUser.id, editUserForm);
         qc.invalidateQueries({ queryKey: ['pendingUsers'] });
       } else {
-        await base44.entities.User.update(editingUser.id, editUserForm);
+        const updatePayload = { ...editUserForm };
+        if (!updatePayload.password || !updatePayload.password.trim()) {
+          delete updatePayload.password;
+        }
+        await base44.entities.User.update(editingUser.id, updatePayload);
         qc.invalidateQueries({ queryKey: ['users'] });
       }
       toast.success('User updated successfully');
@@ -957,6 +986,22 @@ export default function TeamAndRbacSettings({ currentUser }) {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                Password <span className="font-normal text-slate-400 lowercase">(optional — set to create direct login credentials)</span>
+              </label>
+              <Input
+                type="password"
+                placeholder="Enter password to enable immediate login (or leave blank to invite)"
+                value={addUserForm.password || ''}
+                onChange={(e) => setAddUserForm(f => ({ ...f, password: e.target.value }))}
+                className="text-xs"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Entering a password activates the account immediately with hashed credentials so you can share login details directly.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
                 Assigned RBAC Role
               </label>
               <select
@@ -1078,6 +1123,21 @@ export default function TeamAndRbacSettings({ currentUser }) {
                 ))}
               </select>
             </div>
+
+            {!editingUser?.isPending && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Reset Password <span className="font-normal text-slate-400 lowercase">(leave blank to keep current)</span>
+                </label>
+                <Input
+                  type="password"
+                  placeholder="Enter new password to reset"
+                  value={editUserForm.password || ''}
+                  onChange={(e) => setEditUserForm(f => ({ ...f, password: e.target.value }))}
+                  className="text-xs"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
